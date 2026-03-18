@@ -1,6 +1,6 @@
 DB_USER   = postgres
 DB_NAME   = minwaykumkoldb
-PSQL      = docker compose exec -T db psql -U $(DB_USER) -d $(DB_NAME)
+PSQL      = docker compose exec -T db psql -U $(DB_USER) -d $(DB_NAME) -v ON_ERROR_STOP=1
 
 # ─────────────────────────────────────────────
 # Запуск / остановка
@@ -42,6 +42,7 @@ load-hackathon:
 	$(PSQL) -c "TRUNCATE \"references\".wialon_units_snapshot_1, \"references\".wialon_units_snapshot_2, \"references\".wialon_units_snapshot_3 CASCADE;"
 	$(PSQL) -c "TRUNCATE public.tasks, public.assignments CASCADE;"
 	@echo ">>> [2/4] Загружаем граф, скважины и снапшоты..."
+	$(PSQL) -c "SET client_encoding = 'UTF8';" < /dev/null
 	$(PSQL) < DB/load_references.sql
 	@echo ">>> [3/4] Загружаем справочники техники и совместимости..."
 	$(PSQL) < DB/update_catalogs.sql
