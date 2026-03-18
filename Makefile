@@ -37,15 +37,15 @@ load-all: load-test-data load-tasks
 	@echo "Все данные загружены"
 
 load-hackathon:
-	@echo ">>> [1/4] Очищаем старые данные..."
+	@echo ">>> [1/5] Очищаем старые данные..."
 	$(PSQL) -c "TRUNCATE \"references\".road_nodes, \"references\".road_edges, \"references\".wells CASCADE;"
 	$(PSQL) -c "TRUNCATE \"references\".wialon_units_snapshot_1, \"references\".wialon_units_snapshot_2, \"references\".wialon_units_snapshot_3 CASCADE;"
 	$(PSQL) -c "TRUNCATE public.tasks, public.assignments CASCADE;"
-	@echo ">>> [2/4] Загружаем граф, скважины и снапшоты..."
+	@echo ">>> [2/5] Загружаем справочники техники (нужны до снапшотов из-за FK)..."
+	$(PSQL) < DB/update_catalogs.sql
+	@echo ">>> [3/5] Загружаем граф, скважины и снапшоты..."
 	$(PSQL) -c "SET client_encoding = 'UTF8';" < /dev/null
 	$(PSQL) < DB/load_references.sql
-	@echo ">>> [3/4] Загружаем справочники техники и совместимости..."
-	$(PSQL) < DB/update_catalogs.sql
 	@echo ">>> [4/5] Загружаем заявки..."
 	$(PSQL) < DB/tasks_hackathon.sql
 	@echo ">>> [5/5] Корректируем координаты техники..."
