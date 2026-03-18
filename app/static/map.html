@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ИС УТО — Диспетчерская</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+:root{--bg:#0a0d0f;--panel:#0f1418;--border:#1e2830;--accent:#e8a020;--accent2:#20a8e8;--danger:#e83020;--success:#20e860;--text:#eef2f6;--muted:#b0c4d4;--font-hd:'Bebas Neue',sans-serif;--font-mono:'JetBrains Mono',monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-size:12px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{background:var(--panel);border-bottom:1px solid var(--border);padding:0 20px;height:48px;display:flex;align-items:center;gap:20px;flex-shrink:0}
+header h1{font-family:var(--font-hd);font-size:22px;letter-spacing:3px;color:var(--accent)}
+.hs{display:flex;flex-direction:column;gap:1px}
+.hs span:first-child{color:#8fa8bc;font-size:9px;letter-spacing:1px}
+.hs span:last-child{color:var(--text);font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);animation:pulse 2s infinite;margin-left:auto}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.main{display:flex;flex:1;overflow:hidden}
+.sidebar{width:340px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.tabs{display:flex;border-bottom:1px solid var(--border)}
+.tab{flex:1;padding:9px 4px;text-align:center;cursor:pointer;font-size:9px;letter-spacing:1px;color:#8fa8bc;border-bottom:2px solid transparent;transition:all .2s}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab:hover:not(.active){color:var(--text)}
+.tc{display:none;flex-direction:column;flex:1;overflow:hidden}
+.tc.active{display:flex}
+.stitle{font-size:9px;letter-spacing:2px;color:#90a8bc;padding:8px 14px 4px;text-transform:uppercase}
+.grp-card{cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.grp-card:hover{box-shadow:0 0 0 1px var(--accent2)!important}
+.grp-card.grp-active{box-shadow:0 0 0 2px var(--accent2),0 0 12px var(--accent2)44!important;border-color:var(--accent2)!important}
+.fa{padding:6px 14px;display:flex;flex-direction:column;gap:5px}
+label{font-size:9px;letter-spacing:1px;color:#b0c4d4;margin-bottom:2px;display:block}
+input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:5px 8px;border-radius:3px;outline:none;transition:border-color .2s}
+input.search-input{width:auto;flex:1;min-width:0;font-size:12px;padding:6px 8px;height:30px;box-sizing:border-box}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+select option{background:var(--bg);color:var(--text)}
+select[multiple]{height:100px}
+select[multiple] option:checked{background:var(--accent);color:var(--bg);font-weight:600}
+select[multiple] option:hover{background:var(--border)}
+.btn{padding:7px 12px;font-family:var(--font-hd);font-size:13px;letter-spacing:2px;border:none;border-radius:3px;cursor:pointer;transition:all .2s;width:100%}
+.bp{background:var(--accent);color:var(--bg)}.bp:hover{background:#ffb830}
+.bs{background:var(--accent2);color:var(--bg)}.bs:hover{background:#40c8ff}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.res{flex:1;overflow-y:auto;padding:6px 14px}
+.res::-webkit-scrollbar{width:4px}
+.res::-webkit-scrollbar-track{background:var(--bg)}
+.res::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.card{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:all .2s}
+.card:hover{border-color:var(--accent)}
+.card.sel{border-color:var(--accent);background:#1a1200}
+.card.r1{border-left:3px solid var(--success)}
+.card.r2{border-left:3px solid var(--accent)}
+.card.r3{border-left:3px solid var(--muted)}
+.ch{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.cn{font-weight:600;font-size:12px}
+.sb{font-family:var(--font-hd);font-size:18px;color:var(--accent)}
+.cs{display:flex;gap:12px;margin-bottom:6px}
+.st{display:flex;flex-direction:column;gap:1px}
+.sl{font-size:9px;color:#8fa8bc;letter-spacing:1px}
+.sv{font-size:12px;font-weight:600}
+.cr{font-size:10px;color:#8fa8bc;line-height:1.5;border-top:1px solid var(--border);padding-top:6px;margin-top:4px}
+.strat{font-size:9px;letter-spacing:1px;padding:2px 6px;border-radius:2px;text-transform:uppercase}
+.s-single_unit{background:#003820;color:var(--success)}
+.s-separate{background:#200010;color:#ff6060}
+.s-mixed{background:#201000;color:var(--accent)}
+.sbar-wrap{margin:8px 0 4px}
+.sbar-lbl{display:flex;justify-content:space-between;font-size:10px;margin-bottom:4px}
+.sbar{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.sfill{height:100%;background:var(--success);border-radius:2px;transition:width .6s}
+.tpill{display:inline-block;background:var(--border);color:var(--text);font-size:10px;padding:2px 6px;border-radius:2px;margin:2px}
+/* Log bar */
+.logbar{background:var(--bg);border-top:1px solid var(--border);padding:0 14px;height:36px;flex-shrink:0;display:flex;align-items:center;gap:10px}
+.log-txt{flex:1;font-size:10px;color:#8fa8bc;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.log-txt.err{color:var(--danger)}.log-txt.ok{color:var(--success)}.log-txt.busy{color:var(--accent)}
+.timer-badge{font-family:var(--font-hd);font-size:13px;color:var(--accent);letter-spacing:1px;white-space:nowrap;min-width:54px;text-align:right}
+/* Spinner overlay on map */
+.spinner-overlay{position:absolute;inset:0;background:rgba(10,13,15,.75);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:10}
+.spinner-overlay.show{display:flex}
+.spinner{width:48px;height:48px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner-label{font-family:var(--font-hd);font-size:18px;letter-spacing:3px;color:var(--accent)}
+.spinner-steps{font-size:10px;color:#8fa8bc;letter-spacing:1px;text-align:center;line-height:2}
+.spinner-clock{font-size:24px;font-family:var(--font-hd);color:var(--text);letter-spacing:2px}
+/* Map */
+.mw{flex:1;position:relative;overflow:hidden}
+#map{width:100%;height:100%}
+.legend{position:absolute;bottom:32px;left:16px;background:rgba(15,20,24,.92);border:1px solid var(--border);padding:10px 14px;border-radius:4px;font-size:10px;pointer-events:none;display:none;z-index:1000}
+.legend div{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.legend div:last-child{margin-bottom:0}
+.ll{width:24px;height:3px;border-radius:2px}
+.ld{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--font-hd);font-size:20px;letter-spacing:3px;color:#8fa8bc;pointer-events:none;text-align:center;line-height:1.6;z-index:1000}
+.zb-wrap{position:absolute;top:16px;right:16px;display:flex;flex-direction:column;gap:4px;z-index:1000}
+.zb{width:32px;height:32px;background:var(--panel);border:1px solid var(--border);color:var(--text);font-size:16px;cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.zb:hover{border-color:var(--accent);color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1>ИС УТО</h1>
+  <div class="hs"><span>ТРАНСПОРТ</span><span id="hv">—</span></div>
+  <div class="hs"><span>УЗЛОВ</span><span id="hn">—</span></div>
+  <div class="hs"><span>РЁБЕР</span><span id="he">—</span></div>
+  <div class="hs"><span>AI</span><span id="ha">—</span></div>
+  <div class="hs" style="margin-left:8px"><span>СТАТУС</span><span id="hst" style="color:#8fa8bc">...</span></div>
+  <a href="/static/field_map.html" style="margin-left:12px;font-family:var(--font-hd);font-size:12px;letter-spacing:2px;color:var(--accent2);text-decoration:none;border:1px solid var(--accent2);padding:4px 10px;border-radius:3px;white-space:nowrap;transition:all .2s" onmouseover="this.style.background='var(--accent2)';this.style.color='var(--bg)'" onmouseout="this.style.background='transparent';this.style.color='var(--accent2)'">КАРТА МЕСТОРОЖДЕНИЯ →</a>
+  <div class="dot"></div>
+</header>
+<div class="main">
+  <div class="sidebar">
+    <div class="tabs">
+      <div class="tab active" onclick="ST('rec')">РЕКОМЕНД.</div>
+      <div class="tab" onclick="ST('rt')">МАРШРУТ</div>
+      <div class="tab" onclick="ST('mt')">МУЛЬТИЗАД.</div>
+      <div class="tab" onclick="ST('vrp')">VRP</div>
+      <div class="tab" onclick="ST('sim')">СИМУЛ.</div>
+    </div>
+
+    <!-- РЕКОМЕНДАЦИИ -->
+    <div class="tc active" id="tab-rec">
+      <div class="stitle">Параметры заявки</div>
+      <div class="fa">
+        <div><label>ЗАЯВКА</label><select id="r-id"><option value="">— загрузка... —</option></select></div>
+        <div id="r-task-info" style="display:none;font-size:10px;padding:4px 8px;background:var(--bg2,#0d1117);border:1px solid var(--border);border-radius:3px;line-height:1.6"></div>
+        <div><label>ПРИОРИТЕТ</label>
+          <select id="r-pri">
+            <option value="high">HIGH — Срочная</option>
+            <option value="medium" selected>MEDIUM — Обычная</option>
+            <option value="low">LOW — Плановая</option>
+          </select>
+        </div>
+        <div><label>СКВАЖИНА (UWI)</label><select id="r-uwi"><option value="">— загрузка... —</option></select></div>
+        <div><label>ДАТА/ВРЕМЯ</label><select id="r-dt"><option value="">— загрузка... —</option></select></div>
+        <div><label>ДЛИТЕЛЬНОСТЬ (Ч)</label>
+          <select id="r-dur">
+            <option value="2">2 часа</option>
+            <option value="3">3 часа</option>
+            <option value="4" selected>4 часа</option>
+            <option value="4.5">4.5 часа</option>
+            <option value="6">6 часов</option>
+            <option value="8">8 часов</option>
+            <option value="10">10 часов</option>
+            <option value="12">12 часов</option>
+          </select>
+        </div>
+        <button class="btn bp" id="btn-rec" onclick="doRec()">НАЙТИ ТЕХНИКУ</button>
+      </div>
+      <div class="stitle">Результаты</div>
+      <div class="res" id="r-res"><div style="color:#8fa8bc;font-size:11px;padding:4px 0">Выберите заявку и нажмите «Найти технику»</div></div>
+    </div>
+
+    <!-- МАРШРУТ -->
+    <div class="tc" id="tab-rt">
+      <div class="stitle">Параметры маршрута</div>
+      <div class="fa">
+        <div><label>ТЕХНИКА (Wialon ID)</label><select id="rt-vid"><option value="">— загрузка... —</option></select></div>
+        <div><label>СКВАЖИНА (UWI)</label><select id="rt-uwi"><option value="">— загрузка... —</option></select></div>
+        <button class="btn bs" id="btn-rt" onclick="doRoute()">ПОСТРОИТЬ МАРШРУТ</button>
+      </div>
+      <div class="stitle">Результат</div>
+      <div class="res" id="rt-res"><div style="color:#8fa8bc;font-size:11px;padding:4px 0">Выберите технику и скважину</div></div>
+    </div>
+
+    <!-- МУЛЬТИЗАДАЧА -->
+    <div class="tc" id="tab-mt">
+      <div class="stitle">Выберите заявки</div>
+      <div class="fa">
+        <div style="display:flex;gap:4px;align-items:center">
+          <label style="margin:0;white-space:nowrap">СОРТИРОВКА</label>
+          <select id="mt-sort" onchange="rebuildTaskSelect('mt-ids','mt-sort')" style="flex:1">
+            <option value="default">По умолчанию</option>
+            <option value="priority">По приоритету</option>
+            <option value="date">По дате</option>
+            <option value="type">По типу работ</option>
+            <option value="uwi">По скважине</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center">
+          <input id="mt-search" type="text" class="search-input" placeholder="Введите номер заявки…" oninput="filterTaskSelect('mt-ids','mt-search')">
+          <button id="mt-add" class="btn" style="background:var(--border);color:var(--text);white-space:nowrap;font-size:11px;padding:5px 10px;flex-shrink:0;width:auto;height:30px" onclick="addFilteredToSelect('mt-ids')">+ ДОБАВИТЬ</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <label style="margin:0">ЗАЯВКИ (клик = выбрать/снять)</label>
+          <span id="mt-count" style="color:var(--accent);font-size:10px;font-weight:600"></span>
+        </div>
+        <select id="mt-ids" multiple style="height:120px" onchange="_updateSelCount('mt-ids')"></select>
+        <div style="display:flex;gap:4px">
+          <button class="btn" style="background:var(--border);color:var(--text);flex:1;font-size:11px;padding:5px" onclick="selectAllTasks('mt-ids')">ВСЕ</button>
+          <button class="btn" style="background:var(--border);color:var(--text);flex:1;font-size:11px;padding:5px" onclick="selectPriority('mt-ids','high')">HIGH</button>
+          <button class="btn" style="background:var(--border);color:var(--text);flex:1;font-size:11px;padding:5px" onclick="selectPriority('mt-ids','medium')">MED</button>
+          <button class="btn" style="background:var(--border);color:var(--text);flex:1;font-size:11px;padding:5px" onclick="clearSelect('mt-ids');_updateSelCount('mt-ids')">СБРОС</button>
+        </div>
+        <div id="mt-limit-hint" style="font-size:10px;color:#8fa8bc;padding:2px 0"></div>
+        <div><label>МАКС. КРЮК (коэф.)</label><input id="mt-d" type="number" value="1.3" step="0.1"></div>
+        <div><label>МАКС. ВРЕМЯ (мин)</label><input id="mt-t" type="number" value="480"></div>
+        <button class="btn bp" id="btn-mt" onclick="doMT()">АНАЛИЗ ГРУППИРОВКИ</button>
+      </div>
+      <div class="stitle">Результат</div>
+      <div class="res" id="mt-res"><div style="color:#8fa8bc;font-size:11px;padding:4px 0">Выберите заявки</div></div>
+    </div>
+
+    <!-- VRP -->
+    <div class="tc" id="tab-vrp">
+      <div class="stitle">OR-Tools VRP оптимизация</div>
+      <div class="fa">
+        <div style="display:flex;gap:4px;align-items:center">
+          <label style="margin:0;white-space:nowrap">СОРТИРОВКА</label>
+          <select id="vrp-sort" onchange="rebuildTaskSelect('vrp-ids','vrp-sort')" style="flex:1">
+            <option value="default">По умолчанию</option>
+            <option value="priority">По приоритету</option>
+            <option value="date">По дате</option>
+            <option value="type">По типу работ</option>
+            <option value="uwi">По скважине</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center">
+          <input id="vrp-search" type="text" class="search-input" placeholder="Введите номер заявки…" oninput="filterTaskSelect('vrp-ids','vrp-search')">
+          <button id="vrp-add" class="btn" style="background:var(--border);color:var(--text);white-space:nowrap;font-size:11px;padding:5px 10px;flex-shrink:0;width:auto;height:30px" onclick="addFilteredToSelect('vrp-ids')">+ ДОБАВИТЬ</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <label style="margin:0">ЗАЯВКИ (клик = выбрать/снять)</label>
+          <span id="vrp-count" style="color:var(--accent);font-size:10px;font-weight:600"></span>
+        </div>
+        <select id="vrp-ids" multiple style="height:120px" onchange="_updateSelCount('vrp-ids')"></select>
+        <div style="display:flex;gap:4px">
+          <button class="btn" style="background:var(--border);color:var(--text);flex:1;font-size:11px;padding:5px" onclick="selectAllTasks('vrp-ids')">ВСЕ</button>
+          <button class="btn" style="background:var(--border);color:var(--text);flex:1;font-size:11px;padding:5px" onclick="selectPriority('vrp-ids','high')">HIGH</button>
+          <button class="btn" style="background:var(--border);color:var(--text);flex:1;font-size:11px;padding:5px" onclick="selectPriority('vrp-ids','medium')">MED</button>
+          <button class="btn" style="background:var(--border);color:var(--text);flex:1;font-size:11px;padding:5px" onclick="clearSelect('vrp-ids');_updateSelCount('vrp-ids')">СБРОС</button>
+        </div>
+        <div id="vrp-limit-hint" style="font-size:10px;color:#8fa8bc;padding:2px 0"></div>
+        <div><label>ЛИМИТ РЕШАТЕЛЯ (сек)</label>
+          <select id="vrp-tl">
+            <option value="5">5 секунд</option>
+            <option value="10" selected>10 секунд</option>
+            <option value="20">20 секунд</option>
+            <option value="30">30 секунд</option>
+            <option value="60">60 секунд</option>
+          </select>
+        </div>
+        <button class="btn bp" id="btn-vrp" onclick="doVRP()">ЗАПУСТИТЬ OR-TOOLS VRP</button>
+      </div>
+      <div class="stitle">Сравнение: VRP vs Greedy</div>
+      <div class="res" id="vrp-res"><div style="color:#8fa8bc;font-size:11px;padding:4px 0">Выберите заявки</div></div>
+    </div>
+
+    <div class="tc" id="tab-sim">
+      <div class="stitle">Симуляция 24 часа</div>
+      <div class="fa">
+        <div><label>НАЧАЛО ГОРИЗОНТА</label>
+          <select id="sim-start">
+            <option value="">— загрузка... —</option>
+          </select>
+        </div>
+        <div><label>ГОРИЗОНТ (ЧАСОВ)</label>
+          <select id="sim-hours">
+            <option value="8">8 часов (смена)</option>
+            <option value="12">12 часов</option>
+            <option value="24" selected>24 часа</option>
+            <option value="48">48 часов (2 дня)</option>
+            <option value="72">72 часа (3 дня)</option>
+          </select>
+          <div id="sim-warn" style="color:#e8a020;font-size:10px;margin-top:4px;display:none">
+            ⚠ Горизонт выходит за пределы имеющихся заявок
+          </div>
+        </div>
+        <button class="btn bp" id="btn-sim" onclick="doSim()">▶ ЗАПУСТИТЬ СИМУЛЯЦИЮ</button>
+      </div>
+      <div class="stitle">Результат</div>
+      <div class="res" id="sim-res"><div style="color:#8fa8bc;font-size:11px;padding:4px 0">Выберите начало горизонта</div></div>
+    </div>
+
+    <div class="logbar">
+      <div class="log-txt" id="log">Готов к работе</div>
+      <div class="timer-badge" id="timer"></div>
+    </div>
+  </div>
+
+  <div class="mw">
+    <div id="map"></div>
+    <div class="hint" id="hint">ВВЕДИТЕ ЗАПРОС<br><span style="font-size:13px;letter-spacing:1px">маршрут отобразится здесь</span></div>
+    <div class="zb-wrap">
+      <div class="zb" onclick="zm(1.3)">+</div>
+      <div class="zb" onclick="zm(0.77)">−</div>
+      <div class="zb" onclick="rv()" style="font-size:11px">⊙</div>
+    </div>
+    <div class="legend" id="leg"></div>
+    <!-- Spinner overlay -->
+    <div class="spinner-overlay" id="spinner">
+      <div class="spinner"></div>
+      <div class="spinner-clock" id="sp-clock">0.0с</div>
+      <div class="spinner-label" id="sp-label">ОБРАБОТКА</div>
+      <div class="spinner-steps" id="sp-steps"></div>
+    </div>
+  </div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Leaflet + CartoDB Positron ────────────────────────────────────────────────
+const map = L.map('map', {
+  zoomControl: false,
+  attributionControl: true,
+}).setView([51.5, 68.1], 10);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© <a href="https://carto.com/">CARTO</a> © <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+  subdomains: 'abcd',
+  maxZoom: 19,
+}).addTo(map);
+
+// Держим все слои маршрутов и маркеров здесь чтобы чистить при новом запросе
+let _routeLayers = [];
+let _markerLayers = [];
+// Слои по группам: {groupId: {routes:[], markers:[], color:''}}
+let _groupLayers = {};
+let _activeGroup = null;
+
+function _clearMap() {
+  _routeLayers.forEach(l => map.removeLayer(l));
+  _markerLayers.forEach(l => map.removeLayer(l));
+  _routeLayers = [];
+  _markerLayers = [];
+  _groupLayers = {};
+  _activeGroup = null;
+}
+
+// Начать запись слоёв в группу
+function _beginGroup(id, color) {
+  _groupLayers[String(id)] = {routes: [], markers: [], color};
+}
+
+// Добавить слой к текущей группе
+function _addToGroup(id, layer, type) {
+  const key = String(id);
+  if (!_groupLayers[key]) return;
+  _groupLayers[key][type].push(layer);
+}
+
+// Подсветить группу — остальные притушить
+function highlightGroup(id) {
+  // Снимаем если повторный клик по той же группе
+  const idStr = String(id);
+  if (_activeGroup === idStr) {
+    _resetGroupHighlight();
+    _activeGroup = null;
+    document.querySelectorAll('.grp-card').forEach(el => el.classList.remove('grp-active'));
+    return;
+  }
+  _activeGroup = idStr;
+
+  Object.entries(_groupLayers).forEach(([gid, gl]) => {
+    const active = gid === idStr;
+    gl.routes.forEach(l => {
+      if (!l.setStyle) return;
+      l.setStyle({
+        opacity: active ? 1.0 : 0.15,
+        weight:  active ? 5   : 1.5,
+      });
+    });
+    gl.markers.forEach(l => {
+      if (l.setStyle) l.setStyle({
+        fillOpacity: active ? 0.95 : 0.15,
+        opacity:     active ? 1.0  : 0.15,
+      });
+      else if (l.setOpacity) l.setOpacity(active ? 1 : 0.15);
+    });
+  });
+
+  // Зум на активную группу
+  const gl = _groupLayers[idStr];
+  if (gl) {
+    const allLayers = [...gl.routes, ...gl.markers];
+    if (allLayers.length) {
+      try {
+        const bounds = L.featureGroup(
+          allLayers.filter(l => typeof l.getLatLng === 'function' || typeof l.getBounds === 'function')
+        ).getBounds();
+        if (bounds.isValid()) map.fitBounds(bounds.pad(0.3));
+      } catch(e) {}
+    }
+  }
+
+  // Подсветка карточки
+  document.querySelectorAll('.grp-card').forEach(el => {
+    el.classList.toggle('grp-active', el.dataset.gid === idStr);
+  });
+}
+
+function _resetGroupHighlight() {
+  Object.values(_groupLayers).forEach(gl => {
+    gl.routes.forEach(l => {
+      if (l.setStyle) l.setStyle({opacity: 0.9, weight: 3});
+    });
+    gl.markers.forEach(l => {
+      if (l.setStyle) l.setStyle({fillOpacity: 0.9, opacity: 1.0});
+      else if (l.setOpacity) l.setOpacity(1);
+    });
+  });
+}
+
+// Кастомный маркер-кружок с текстом (для техники, скважин, остановок)
+function _circleMarker(lon, lat, opts) {
+  const {color='#20e860', r=8, label='', stopNum=null} = opts;
+
+  const m = L.circleMarker([lat, lon], {
+    radius: r,
+    fillColor: color,
+    color: '#0a0d0f',
+    weight: 2,
+    opacity: 1,
+    fillOpacity: 0.9,
+  });
+
+  // Tooltip с подписью
+  if (label) {
+    m.bindTooltip(label, {
+      permanent: false,
+      direction: 'right',
+      className: 'uto-tooltip',
+      offset: [r + 4, 0],
+    });
+  }
+
+  // Если есть номер остановки — показываем его поверх маркера через DivIcon
+  if (stopNum !== null) {
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="
+        width:${r*2+4}px;height:${r*2+4}px;
+        border-radius:50%;
+        background:${color};
+        border:2px solid #0a0d0f;
+        display:flex;align-items:center;justify-content:center;
+        font-family:'JetBrains Mono',monospace;
+        font-size:${r < 8 ? 9 : 11}px;font-weight:700;
+        color:#0a0d0f;
+        box-shadow:0 0 8px ${color}88;
+      ">${stopNum}</div>`,
+      iconSize: [r*2+4, r*2+4],
+      iconAnchor: [r+2, r+2],
+    });
+    const dm = L.marker([lat, lon], {icon});
+    if (label) dm.bindTooltip(label, {permanent:false, direction:'right', className:'uto-tooltip', offset:[r+6, 0]});
+    return dm;
+  }
+
+  return m;
+}
+
+// Добавить маршрут (polyline) на карту
+function _addRoute(coords, color, weight=3, opacity=0.9) {
+  // coords = [[lon, lat], ...]  → Leaflet хочет [lat, lon]
+  const latlngs = coords.map(c => [c[1], c[0]]);
+  const line = L.polyline(latlngs, {
+    color,
+    weight,
+    opacity,
+    lineJoin: 'round',
+    lineCap: 'round',
+  }).addTo(map);
+
+  _routeLayers.push(line);
+  return line;
+}
+
+// Добавить маркер на карту
+function _addMarker(lon, lat, opts) {
+  const m = _circleMarker(lon, lat, opts).addTo(map);
+  _markerLayers.push(m);
+  return m;
+}
+
+// Автозум на все видимые слои
+function _fitAll() {
+  const all = [..._routeLayers, ..._markerLayers];
+  if (!all.length) return;
+  try {
+    const group = L.featureGroup(all);
+    const bounds = group.getBounds();
+    if (bounds.isValid()) map.fitBounds(bounds, {padding: [40, 40], maxZoom: 14});
+  } catch(e) {}
+}
+
+// Совместимость со старым API кнопок zoom / reset
+function zm(f) { map.setZoom(map.getZoom() + (f > 1 ? 1 : -1)); }
+function rv() { _fitAll(); }
+function resize() {} // Leaflet сам реагирует на resize
+function render() {} // no-op — Leaflet рисует сам
+
+// Тосты-подсказки стиль
+const style = document.createElement('style');
+style.textContent = `
+  .uto-tooltip {
+    background: rgba(15,20,24,.92) !important;
+    border: 1px solid #1e2830 !important;
+    color: #c8d4dc !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 11px !important;
+    border-radius: 3px !important;
+    padding: 3px 7px !important;
+    box-shadow: none !important;
+    white-space: nowrap;
+  }
+  .uto-tooltip::before { display: none !important; }
+  .leaflet-attribution-flag { display: none !important; }
+  .leaflet-control-attribution {
+    background: rgba(15,20,24,.7) !important;
+    color: #4a5a66 !important;
+    font-size: 9px !important;
+  }
+  .leaflet-control-attribution a { color: #4a5a66 !important; }
+`;
+document.head.appendChild(style);
+
+// ── Timer / Spinner ───────────────────────────────────────────────────────────
+let _timerStart=0,_timerRAF=null,_timerFinal=null;
+
+function startTimer(label,steps=[]){
+  _timerStart=performance.now();
+  _timerFinal=null;
+  document.getElementById('sp-label').textContent=label;
+  document.getElementById('sp-steps').innerHTML=steps.map(s=>`<span id="step-${s.id}" style="opacity:.4">${s.text}</span>`).join('<br>');
+  document.getElementById('spinner').classList.add('show');
+  document.getElementById('timer').textContent='';
+  function tick(){
+    const s=((performance.now()-_timerStart)/1000).toFixed(1);
+    document.getElementById('sp-clock').textContent=s+'с';
+    _timerRAF=requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+function stepDone(id){
+  const el=document.getElementById('step-'+id);
+  if(el){el.style.opacity='1';el.style.color='var(--success)';el.textContent='✓ '+el.textContent.replace('✓ ','')}
+}
+
+function stopTimer(){
+  const elapsed=((performance.now()-_timerStart)/1000).toFixed(2);
+  cancelAnimationFrame(_timerRAF);
+  _timerFinal=elapsed;
+  document.getElementById('spinner').classList.remove('show');
+  document.getElementById('timer').textContent=elapsed+'с';
+  return elapsed;
+}
+
+function setLoading(btns,on){
+  btns.forEach(id=>{const b=document.getElementById(id);if(b){b.disabled=on}});
+}
+
+// ── Log ───────────────────────────────────────────────────────────────────────
+function fmtDate(iso){
+  if(!iso) return '';
+  const d=iso.replace('T',' ').replace('Z','');
+  const [datePart,timePart]=(d+' ').split(' ');
+  const [y,m,dd]=(datePart||'').split('-');
+  if(!y||!m||!dd) return iso;
+  return timePart&&timePart.length>1?`${dd}/${m}/${y} ${timePart.slice(0,5)}`:`${dd}/${m}/${y}`;
+}
+function fmtTime(iso){
+  if(!iso) return '';
+  const t=iso.includes('T')?iso.split('T')[1]:iso.split(' ')[1]||'';
+  return t.slice(0,5);
+}
+
+function SL(msg,t=''){
+  const e=document.getElementById('log');
+  if(!e)return;
+  e.textContent=msg;e.className='log-txt '+t;
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+const LEGENDS = {
+  rec: [
+    {color:'#20e860', type:'line',   label:'Лучший маршрут'},
+    {color:'#e8a020', type:'line',   label:'2-й кандидат'},
+    {color:'#20a8e8', type:'line',   label:'3-й кандидат'},
+    {color:'#20a8e8', type:'square', label:'Техника (старт)'},
+    {color:'#e83020', type:'dot',    label:'Скважина (цель)'},
+  ],
+  rt: [
+    {color:'#20e860', type:'line',   label:'Маршрут'},
+    {color:'#20a8e8', type:'square', label:'Техника (старт)'},
+    {color:'#e83020', type:'dot',    label:'Скважина (цель)'},
+  ],
+  mt: [
+    {color:'#20e860', type:'line',   label:'Группа 1 (объединённый маршрут)'},
+    {color:'#e8a020', type:'line',   label:'Группа 2'},
+    {color:'#20a8e8', type:'line',   label:'Группа 3+'},
+    {color:'#20e860', type:'square', label:'Техника (старт группы)'},
+    {color:'#e83020', type:'dot',    label:'Скважина (точка работ)'},
+  ],
+  vrp: [
+    {color:'#20e860', type:'line',   label:'Маршрут машины 1 (VRP)'},
+    {color:'#e8a020', type:'line',   label:'Маршрут машины 2 (VRP)'},
+    {color:'#20a8e8', type:'line',   label:'Маршрут машины 3+ (VRP)'},
+    {color:'#a0a0a0', type:'line',   label:'Greedy baseline'},
+    {color:'#20a8e8', type:'square', label:'Техника (старт)'},
+    {color:'#e83020', type:'dot',    label:'Скважина (точка работ)'},
+  ],
+  sim: [
+    {color:'#20e860', type:'dot',    label:'Выполнено вовремя'},
+    {color:'#e8e020', type:'dot',    label:'Опоздание (baseline)'},
+    {color:'#e83020', type:'dot',    label:'Опоздание (оптимизация)'},
+    {color:'#20a8e8', type:'dot',    label:'Техника (позиция)'},
+  ],
+};
+
+let _activeTab = 'rec';
+
+function _updateLegend(tab) {
+  const leg = document.getElementById('leg');
+  const defs = LEGENDS[tab] || [];
+  if (!defs.length) { leg.style.display = 'none'; return; }
+  leg.innerHTML = defs.map(d => {
+    let shape;
+    if (d.type === 'line') {
+      shape = `<div style="width:22px;height:3px;background:${d.color};border-radius:2px;flex-shrink:0"></div>`;
+    } else if (d.type === 'square') {
+      shape = `<div style="width:10px;height:10px;background:${d.color};border:2px solid #0a0e12;border-radius:2px;flex-shrink:0;box-shadow:0 0 4px ${d.color}88"></div>`;
+    } else {
+      shape = `<div style="width:10px;height:10px;border-radius:50%;background:${d.color};flex-shrink:0"></div>`;
+    }
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">${shape}<span>${d.label}</span></div>`;
+  }).join('');
+  // Легенда показывается только когда на карте есть данные — не скрываем автоматически
+}
+
+function ST(n){
+  _activeTab = n;
+  ['rec','rt','mt','vrp','sim'].forEach((x,i)=>{
+    document.querySelectorAll('.tab')[i].classList.toggle('active',x===n);
+    document.getElementById('tab-'+x).classList.toggle('active',x===n);
+  });
+  // Обновить легенду под текущий таб
+  const leg = document.getElementById('leg');
+  if (leg.style.display !== 'none' && leg.innerHTML !== '') {
+    _updateLegend(n);
+  }
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function AF(path,body){
+  const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(!r.ok){
+    // Pydantic 422: detail — массив [{loc, msg, type}]
+    // AppError: detail — строка
+    let msg=r.statusText;
+    if(d.detail){
+      msg=Array.isArray(d.detail)
+        ? d.detail.map(e=>(e.msg||'')+(e.loc?' ('+e.loc.slice(-1)[0]+')':'')).join('; ')
+        : String(d.detail);
+    } else if(d.error){
+      msg=d.error;
+    }
+    throw new Error(`[${r.status}] ${msg}`);
+  }
+  return d;
+}
+
+// ── Sort & Select helpers ─────────────────────────────────────────────────────
+const PRIO_ORDER = {high:0, medium:1, low:2};
+
+function sortedTasks(sortKey){
+  const t=[..._tasks];
+  if(sortKey==='priority') t.sort((a,b)=>(PRIO_ORDER[a.priority]||9)-(PRIO_ORDER[b.priority]||9));
+  else if(sortKey==='date')  t.sort((a,b)=>a.planned_start.localeCompare(b.planned_start));
+  else if(sortKey==='type')  t.sort((a,b)=>a.task_type.localeCompare(b.task_type));
+  else if(sortKey==='uwi')   t.sort((a,b)=>a.destination_uwi.localeCompare(b.destination_uwi));
+  return t;
+}
+
+function taskOptionHTML(t){
+  const dt=t.planned_start?fmtDate(t.planned_start):'';
+  return `<option value="${t.task_id}" data-priority="${t.priority}">[${t.priority.toUpperCase()}] ${t.task_id} · ${t.task_type} · ${dt}</option>`;
+}
+
+function rebuildTaskSelect(selectId, sortId){
+  const sel=document.getElementById(selectId);
+  if(!sel)return;
+  const sortKey=document.getElementById(sortId)?.value||'default';
+  const prev=new Set([...sel.selectedOptions].map(o=>o.value));
+  // Сбрасываем и перестраиваем кэш
+  delete _taskOptionsCache[selectId];
+  _buildCache(selectId);
+  sel.innerHTML=sortedTasks(sortKey).map(taskOptionHTML).join('');
+  [...sel.options].forEach(o=>{ if(prev.has(o.value)) o.selected=true; });
+  // Сбросить поле поиска
+  const searchId = selectId === 'mt-ids' ? 'mt-search' : 'vrp-search';
+  const searchEl = document.getElementById(searchId);
+  if (searchEl) searchEl.value = '';
+}
+
+function selectAllTasks(selectId){
+  const sel=document.getElementById(selectId);
+  [...sel.options].forEach(o=>o.selected=true);
+}
+
+function selectPriority(selectId, priority){
+  const sel=document.getElementById(selectId);
+  [...sel.options].forEach(o=>{ o.selected=(o.dataset.priority===priority); });
+}
+
+function clearSelect(selectId){
+  const sel = document.getElementById(selectId);
+  [...sel.options].forEach(o => o.selected = false);
+  // Показываем полный список
+  const searchId = selectId === 'mt-ids' ? 'mt-search' : 'vrp-search';
+  const searchEl = document.getElementById(searchId);
+  if (searchEl) searchEl.value = '';
+  const all = _taskOptionsCache[selectId] || [];
+  sel.innerHTML = all.map(taskOptionHTML).join('');
+  _updateSelCount(selectId);
+  const addBtn = document.getElementById(selectId.replace('-ids', '-add'));
+  if (addBtn) { addBtn._matchIds = []; addBtn.textContent = '+ ДОБАВИТЬ'; addBtn.style.background = 'var(--border)'; addBtn.style.color = 'var(--text)'; }
+}
+
+// ── Task search / filter ──────────────────────────────────────────────────────
+// Полный список задач для каждого select (заполняется при loadDropdowns)
+const _taskOptionsCache = {};
+
+function _buildCache(selectId) {
+  const sortId = selectId === 'mt-ids' ? 'mt-sort' : 'vrp-sort';
+  const sortKey = document.getElementById(sortId)?.value || 'default';
+  _taskOptionsCache[selectId] = sortedTasks(sortKey);
+}
+
+function _updateSelCount(selectId) {
+  const sel = document.getElementById(selectId);
+  const n = sel ? [...sel.selectedOptions].length : 0;
+  const countEl = document.getElementById(selectId.replace('-ids', '-count'));
+  if (countEl) countEl.textContent = n > 0 ? 'Выбрано: ' + n : '';
+}
+
+function filterTaskSelect(selectId, searchId) {
+  if (!_taskOptionsCache[selectId] || !_taskOptionsCache[selectId].length) {
+    _buildCache(selectId);
+  }
+  const raw = document.getElementById(searchId).value.trim().toLowerCase();
+  const tokens = raw ? raw.split(/[,;\s]+/).filter(Boolean) : [];
+  const all = _taskOptionsCache[selectId];
+  const sel = document.getElementById(selectId);
+
+  // Читаем текущий выбор ИЗ DOM
+  const selected = new Set([...sel.selectedOptions].map(o => o.value));
+
+  const filtered = tokens.length
+    ? all.filter(t => tokens.some(tok =>
+        t.task_id.toLowerCase().includes(tok) ||
+        t.task_type.toLowerCase().includes(tok) ||
+        (t.destination_uwi||'').toLowerCase().includes(tok) ||
+        (t.priority||'').toLowerCase().includes(tok)
+      ))
+    : all;
+
+  // Перерисовываем: выбранные всегда сверху
+  const selectedTasks = all.filter(t => selected.has(t.task_id));
+  const filteredNotSelected = filtered.filter(t => !selected.has(t.task_id));
+  const toShow = [...selectedTasks, ...filteredNotSelected];
+
+  sel.innerHTML = toShow.map(taskOptionHTML).join('');
+  // Восстанавливаем выбор
+  [...sel.options].forEach(o => { if (selected.has(o.value)) o.selected = true; });
+
+  // Кнопка ДОБАВИТЬ
+  const newMatches = filtered.filter(t => !selected.has(t.task_id));
+  const addBtn = document.getElementById(selectId.replace('-ids', '-add'));
+  if (addBtn) {
+    if (tokens.length && newMatches.length) {
+      addBtn.textContent = '+ ДОБАВИТЬ (' + newMatches.length + ')';
+      addBtn.style.background = 'var(--accent)';
+      addBtn.style.color = 'var(--bg)';
+      addBtn._matchIds = newMatches.map(t => t.task_id);
+    } else {
+      addBtn.textContent = '+ ДОБАВИТЬ';
+      addBtn.style.background = 'var(--border)';
+      addBtn.style.color = 'var(--text)';
+      addBtn._matchIds = [];
+    }
+  }
+  _updateSelCount(selectId);
+}
+
+function addFilteredToSelect(selectId) {
+  const addBtn = document.getElementById(selectId.replace('-ids', '-add'));
+  const ids = (addBtn && addBtn._matchIds) ? [...addBtn._matchIds] : [];
+  if (!ids.length) return;
+
+  const sel = document.getElementById(selectId);
+  const all = _taskOptionsCache[selectId] || [];
+
+  // Собираем уже выбранные + новые
+  const alreadySelected = new Set([...sel.selectedOptions].map(o => o.value));
+  ids.forEach(id => alreadySelected.add(id));
+
+  // Добавляем в DOM опции которых ещё нет
+  const existing = new Set([...sel.options].map(o => o.value));
+  ids.filter(id => !existing.has(id)).forEach(id => {
+    const t = all.find(t => t.task_id === id);
+    if (t) sel.insertAdjacentHTML('afterbegin', taskOptionHTML(t));
+  });
+
+  // Выставляем selected
+  [...sel.options].forEach(o => { if (alreadySelected.has(o.value)) o.selected = true; });
+
+  // Сбрасываем кнопку
+  if (addBtn) {
+    addBtn._matchIds = [];
+    addBtn.textContent = '✓ ДОБАВЛЕНО';
+    addBtn.style.background = '#20e860';
+    addBtn.style.color = '#0f1418';
+    setTimeout(() => {
+      addBtn.textContent = '+ ДОБАВИТЬ';
+      addBtn.style.background = 'var(--border)';
+      addBtn.style.color = 'var(--text)';
+    }, 1000);
+  }
+
+  // Очищаем поиск и перерисовываем — выбранные окажутся сверху
+  const searchId = selectId === 'mt-ids' ? 'mt-search' : 'vrp-search';
+  const searchEl = document.getElementById(searchId);
+  if (searchEl) { searchEl.value = ''; searchEl.focus(); }
+
+  // Перерисовываем вручную чтобы не потерять alreadySelected
+  const toShow = all;
+  sel.innerHTML = toShow.map(taskOptionHTML).join('');
+  [...sel.options].forEach(o => { if (alreadySelected.has(o.value)) o.selected = true; });
+
+  _updateSelCount(selectId);
+}
+
+// Сбрасываем кэш при перезагрузке данных
+function _clearTaskCache() {
+  delete _taskOptionsCache['mt-ids'];
+  delete _taskOptionsCache['vrp-ids'];
+}
+
+// ── Data loading (dropdowns) ──────────────────────────────────────────────────
+let _tasks=[],_wells=[],_vehicles=[];
+
+async function loadDropdowns(){
+  try{
+    // Load tasks
+    const tr=await fetch('/api/list_tasks').then(r=>r.json());
+    _tasks=tr.tasks||[];
+    const tw=await fetch('/api/list_wells').then(r=>r.json());
+    _wells=tw.wells||[];
+    const tv=await fetch('/api/list_vehicles').then(r=>r.json());
+    _vehicles=tv.vehicles||[];
+
+    // Fill task selects — r-id sorted by priority by default
+    const taskOptsSorted = sortedTasks('priority').map(taskOptionHTML).join('');
+    document.getElementById('r-id').innerHTML=taskOptsSorted||'<option>Нет заявок</option>';
+    // mt and vrp use rebuildTaskSelect
+    _clearTaskCache();
+    rebuildTaskSelect('mt-ids','mt-sort');
+    rebuildTaskSelect('vrp-ids','vrp-sort');
+    _buildCache('mt-ids');
+    _buildCache('vrp-ids');
+    // Показываем лимиты из настроек
+    fetch('/api/health').then(r=>r.json()).then(h=>{
+      const mtLim = h.max_mt_tasks||200;
+      const vrpLim = h.max_vrp_tasks||200;
+      const mth = document.getElementById('mt-limit-hint');
+      const vrph = document.getElementById('vrp-limit-hint');
+      if(mth) mth.textContent = 'Максимум: '+mtLim+' заявок';
+      if(vrph) vrph.textContent = 'Максимум: '+vrpLim+' заявок';
+    }).catch(()=>{});
+
+    // Fill wells
+    const wellOpts=_wells.map(w=>`<option value="${w.uwi}">${w.uwi} — ${w.well_name}</option>`).join('');
+    document.getElementById('r-uwi').innerHTML=wellOpts||'<option>Нет скважин</option>';
+    document.getElementById('rt-uwi').innerHTML=wellOpts||'<option>Нет скважин</option>';
+
+    // Fill vehicles
+    const vehOpts=_vehicles.map(v=>`<option value="${v.vehicle_id}">${v.vehicle_id} — ${v.name}</option>`).join('');
+    document.getElementById('rt-vid').innerHTML=vehOpts||'<option>Нет техники</option>';
+
+    // Fill dates from tasks
+    const dates=[...new Set(_tasks.map(t=>t.planned_start.slice(0,16)))].sort();
+    const dtOpts=dates.map(d=>`<option value="${d}">${fmtDate(d)}</option>`).join('');
+    document.getElementById('r-dt').innerHTML=dtOpts||'<option value="2025-02-20T08:00">2025-02-20 08:00</option>';
+
+    // Fill sim-start from unique dates in tasks
+    // Дни по уникальным датам из заявок
+    const simDays=[...new Set(_tasks.map(t=>t.planned_start.slice(0,10)))].sort();
+    const simOpts=simDays.map(d=>`<option value="${d}T03:00:00Z">${fmtDate(d+"T03:00")}</option>`).join('');
+    document.getElementById('sim-start').innerHTML=simOpts||'<option value="2025-07-01T03:00:00Z">2025-07-01</option>';
+    // Live-проверка горизонта при смене даты/часов
+    function _checkSimWarn(){
+      const simWarn=document.getElementById('sim-warn');
+      const s=document.getElementById('sim-start').value;
+      const h=parseInt(document.getElementById('sim-hours').value)||24;
+      if(!s||!_tasks||!_tasks.length){simWarn.style.display='none';return;}
+      const last=new Date(_tasks.reduce((a,b)=>a.planned_start>b.planned_start?a:b).planned_start);
+      const end=new Date(new Date(s).getTime()+h*3600000);
+      simWarn.style.display=end>last?'block':'none';
+    }
+    document.getElementById('sim-start').addEventListener('change',_checkSimWarn);
+    document.getElementById('sim-hours').addEventListener('change',_checkSimWarn);
+    document.getElementById('r-id').addEventListener('change',function(){
+      const t=_tasks.find(x=>x.task_id===this.value);
+      if(t){
+        document.getElementById('r-uwi').value=t.destination_uwi;
+        document.getElementById('r-pri').value=t.priority;
+        const dt=t.planned_start.slice(0,16);
+        document.getElementById('r-dt').value=dt;
+        // Длительность — показываем точное значение из заявки
+        const dur=parseFloat(t.planned_duration_hours||4);
+        const durSel=document.getElementById('r-dur');
+        // Ищем ближайший вариант в select, либо добавляем новый
+        let found=false;
+        for(const opt of durSel.options){
+          if(Math.abs(parseFloat(opt.value)-dur)<0.01){opt.selected=true;found=true;break;}
+        }
+        if(!found){
+          const opt=document.createElement('option');
+          opt.value=dur;opt.textContent=dur+' ч (из заявки)';opt.selected=true;
+          durSel.appendChild(opt);
+        }
+        // Показать инфо о заявке
+        const infoEl=document.getElementById('r-task-info');
+        if(infoEl){
+          infoEl.innerHTML=
+            `<span style="color:var(--accent2)">${t.task_type}</span> &nbsp;·&nbsp; `+
+            `<span style="color:#8fa8bc">${t.destination_uwi}</span> &nbsp;·&nbsp; `+
+            `${dur}ч &nbsp;·&nbsp; `+
+            `<span style="color:${{high:'#e83020',medium:'#e8a020',low:'#aabccc'}[t.priority]||'#888'}">${t.priority.toUpperCase()}</span>`;
+          infoEl.style.display='block';
+        }
+      }
+    });
+    // Trigger once — скважины уже заполнены, можно диспатчить
+    document.getElementById('r-id').dispatchEvent(new Event('change'));
+
+  }catch(e){
+    SL('Ошибка загрузки данных: '+e.message,'err');
+  }
+}
+
+// ── Health ────────────────────────────────────────────────────────────────────
+async function loadH(){
+  try{
+    const h=await fetch('/api/health').then(r=>r.json());
+    document.getElementById('hv').textContent=h.vehicles;
+    document.getElementById('hn').textContent=h.graph_nodes;
+    document.getElementById('he').textContent=h.graph_edges;
+    document.getElementById('ha').textContent=h.ai_enabled?'ON':'OFF';
+    document.getElementById('hst').textContent='ОНЛАЙН';
+    document.getElementById('hst').style.color='var(--success)';
+  }catch{
+    document.getElementById('hst').textContent='ОШИБКА';
+    document.getElementById('hst').style.color='var(--danger)';
+  }
+}
+
+const C=['#20e860','#e8a020','#20a8e8'];
+
+// ── Recommendations ───────────────────────────────────────────────────────────
+async function doRec(){
+  const uwi=document.getElementById('r-uwi').value;
+  const taskId=document.getElementById('r-id').value;
+  if(!uwi){SL('Выберите скважину','err');return}
+  setLoading(['btn-rec'],true);
+  startTimer('ПОИСК ТЕХНИКИ',[
+    {id:'g',text:'Построение графа расстояний'},
+    {id:'s',text:'Скоринг кандидатов'},
+    {id:'a',text:'AI объяснение (если включён)'},
+  ]);
+  SL('Поиск оптимальной техники...','busy');
+  try{
+    stepDone('g');
+    const data=await AF('/api/recommendations',{
+      task_id:taskId||'T-manual',
+      priority:document.getElementById('r-pri').value,
+      destination_uwi:uwi,
+      planned_start:document.getElementById('r-dt').value+':00Z',
+      duration_hours:parseFloat(document.getElementById('r-dur').value),
+    });
+    stepDone('s');stepDone('a');
+    const elapsed=stopTimer();
+    window._cands=data.units;
+    document.getElementById('r-res').innerHTML=data.units.map((u,i)=>`
+      <div class="card r${i+1} ${i===0?'sel':''}" onclick="selC(${i})">
+        <div class="ch"><div class="cn">${u.name}</div><div class="sb">${Math.round(u.score*100)}</div></div>
+        <div class="cs">
+          <div class="st"><span class="sl">РАССТ.</span><span class="sv">${u.distance_km} км</span></div>
+          <div class="st"><span class="sl">ETA</span><span class="sv">${u.eta_minutes} мин</span></div>
+          <div class="st"><span class="sl">ID</span><span class="sv" style="color:#8fa8bc">${u.wialon_id}</span></div>
+        </div>
+        <div class="cr">${u.reason}</div>
+      </div>`).join('');
+    showC(data.units,0);
+    SL(`Найдено ${data.units.length} кандидатов — ${elapsed}с`,'ok');
+  }catch(e){stopTimer();SL('Ошибка: '+e.message,'err');document.getElementById('r-res').innerHTML=`<div style="color:var(--danger);font-size:11px">${e.message}</div>`}
+  finally{setLoading(['btn-rec'],false)}
+}
+
+function selC(idx){
+  document.querySelectorAll('#r-res .card').forEach((el,i)=>el.classList.toggle('sel',i===idx));
+  showC(window._cands,idx);
+}
+
+function showC(units,hi){
+  _clearMap();
+  document.getElementById('hint').style.display='none';
+  document.getElementById('leg').style.display='block'; _updateLegend(_activeTab);
+  const C=['#20e860','#e8a020','#20a8e8'];
+  units.forEach((u,i)=>{
+    if(!u.route?.coords?.length)return;
+    const color=C[i]||'#aabccc';
+    const w=i===hi?5:2;
+    _addRoute(u.route.coords,color,w,i===hi?0.95:0.5);
+    const start=u.route.coords[0];
+    // Квадратик — позиция техники
+    _addVehicleSquare(start, i===hi?'#20a8e8':'#2a3a44', undefined, i===hi?u.name:'');
+  });
+  const dest=units[hi]?.route?.coords?.at(-1);
+  if(dest) _addMarker(dest[0],dest[1],{color:'#e83020',r:10,label:'Скважина'});
+  _fitAll();
+}
+
+// ── Route ─────────────────────────────────────────────────────────────────────
+async function doRoute(){
+  const vid=parseInt(document.getElementById('rt-vid').value);
+  const uwi=document.getElementById('rt-uwi').value;
+  if(!vid||!uwi){SL('Выберите технику и скважину','err');return}
+  setLoading(['btn-rt'],true);
+  startTimer('МАРШРУТ',[{id:'d',text:'Алгоритм Дейкстры'}]);
+  SL('Построение маршрута...','busy');
+  try{
+    const data=await AF('/api/route',{from:{wialon_id:vid},to:{uwi}});
+    stepDone('d');
+    const elapsed=stopTimer();
+    _clearMap();
+    _addRoute(data.coords,'#20a8e8',5,0.95);
+    _addVehicleSquare(data.coords[0], '#20a8e8', undefined, '#'+vid);
+    _addMarker(data.coords.at(-1)[0],data.coords.at(-1)[1],{color:'#e83020',r:10,label:uwi});
+    document.getElementById('hint').style.display='none';
+    document.getElementById('leg').style.display='block'; _updateLegend(_activeTab);
+    _fitAll();
+    document.getElementById('rt-res').innerHTML=`<div class="card"><div class="cs">
+      <div class="st"><span class="sl">РАССТОЯНИЕ</span><span class="sv">${data.distance_km} км</span></div>
+      <div class="st"><span class="sl">ВРЕМЯ</span><span class="sv">${data.time_minutes} мин</span></div>
+      <div class="st"><span class="sl">УЗЛОВ</span><span class="sv">${data.nodes.length}</span></div>
+      <div class="st"><span class="sl">ВРЕМЯ РАСЧЁТА</span><span class="sv" style="color:var(--accent)">${elapsed}с</span></div>
+    </div></div>`;
+    SL(`Маршрут: ${data.distance_km} км / ${data.time_minutes} мин — ${elapsed}с`,'ok');
+  }catch(e){stopTimer();SL('Ошибка: '+e.message,'err');document.getElementById('rt-res').innerHTML=`<div style="color:var(--danger);font-size:11px">${e.message}</div>`}
+  finally{setLoading(['btn-rt'],false)}
+}
+
+// ── Multitask ─────────────────────────────────────────────────────────────────
+// Квадратный маркер машины (стартовая точка маршрута)
+function _addVehicleSquare(coord, color, groupId, label) {
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="
+      width:12px;height:12px;
+      background:${color};
+      border:2px solid #0a0e12;
+      border-radius:2px;
+      box-shadow:0 0 6px ${color}88;
+    "></div>`,
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
+  });
+  const m = L.marker([coord[1], coord[0]], {icon, zIndexOffset: 500}).addTo(map);
+  m.bindTooltip(label || 'Машина (старт)', {sticky:true, offset:[10,0]});
+  _markerLayers.push(m);
+  if (groupId !== undefined) _addToGroup(groupId, m, 'markers');
+  return m;
+}
+
+async function doMT(){
+  const sel=document.getElementById('mt-ids');
+  const ids=[...sel.selectedOptions].map(o=>o.value);
+  if(ids.length<2){SL('Выберите минимум 2 заявки (Ctrl+клик)','err');return}
+  setLoading(['btn-mt'],true);
+  startTimer('АНАЛИЗ ГРУППИРОВКИ',[
+    {id:'m',text:'Матрица расстояний'},
+    {id:'g',text:'Union-Find кластеризация'},
+    {id:'t',text:'Greedy TSP'},
+    {id:'r',text:'Построение маршрутов по графу'},
+  ]);
+  SL('Анализ группировки...','busy');
+  try{
+    stepDone('m');
+    const data=await AF('/api/multitask',{task_ids:ids,constraints:{
+      max_total_time_minutes:parseInt(document.getElementById('mt-t').value),
+      max_detour_ratio:parseFloat(document.getElementById('mt-d').value),
+    }});
+    stepDone('g');stepDone('t');
+    const elapsed=stopTimer();
+    const sv=Math.max(0,Math.min(100,data.savings_percent));
+    document.getElementById('mt-res').innerHTML=`
+      <div class="card">
+        <div class="ch"><span style="font-weight:600;color:var(--accent2)">ИТОГ</span>
+          <span class="strat s-${data.strategy_summary}">${data.strategy_summary}</span></div>
+        <div class="cs">
+          <div class="st"><span class="sl">ИТОГО КМ</span><span class="sv">${data.total_distance_km}</span></div>
+          <div class="st"><span class="sl">BASELINE</span><span class="sv" style="color:#8fa8bc">${data.baseline_distance_km}</span></div>
+          <div class="st"><span class="sl">ЭКОНОМИЯ</span><span class="sv" style="color:var(--success)">${data.savings_percent}%</span></div>
+          <div class="st"><span class="sl">РАСЧЁТ</span><span class="sv" style="color:var(--accent)">${elapsed}с</span></div>
+        </div>
+        <div class="sbar-wrap">
+          <div class="sbar-lbl"><span>Экономия пробега</span><span style="color:var(--success)">${data.savings_percent}%</span></div>
+          <div class="sbar"><div class="sfill" style="width:${sv}%"></div></div>
+        </div>
+        <div class="cr">${data.reason}</div>
+      </div>
+      ${data.groups.map((g,i)=>`<div class="card grp-card" data-gid="${i}" onclick="highlightGroup(${i})" style="border-left:3px solid ${['#20e860','#e8a020','#20a8e8','#e820a8','#a8e820'][i%5]}"><div class="ch">
+        <span style="font-weight:600;color:${['#20e860','#e8a020','#20a8e8','#e820a8','#a8e820'][i%5]}">ГРУППА ${i+1}</span>
+        <span style="color:#8fa8bc;font-size:10px">${g.length} заявок · нажмите для выделения</span></div>
+        <div>${g.map(t=>`<span class="tpill">${t}</span>`).join('')}</div>
+      </div>`).join('')}`;
+
+    // §7.6: строим реальные polyline по графу для каждой группы
+    const GC=['#20e860','#e8a020','#20a8e8','#e820a8','#a8e820'];
+    _clearMap();
+    stepDone('r');
+    for(let gi=0;gi<data.groups.length;gi++){
+      const grp=data.groups[gi];
+      const color=GC[gi%GC.length];
+      _beginGroup(gi, color);
+      if(grp.length===1){
+        // Одиночная заявка: маркер скважины + маршрут от ближайшей машины
+        const coords=await fetch('/api/task_coords',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_ids:grp})}).then(r=>r.json());
+        const c=coords[grp[0]];
+        if(c){
+          const mk=_addMarker(c.lon,c.lat,{color,r:9,label:grp[0]}); _addToGroup(gi,mk,'markers');
+          // Строим маршрут от ближайшей машины
+          try{
+            const _vid1=data.group_vehicles&&data.group_vehicles[gi];
+            const mr=await AF('/api/multistop_route',Object.assign({task_ids:grp},_vid1!=null?{vehicle_id:_vid1}:{}));
+            if(mr.coords&&mr.coords.length>1){
+              const rl=_addRoute(mr.coords,color,2,0.7); _addToGroup(gi,rl,'routes');
+              const vstart=mr.vehicle_start||mr.coords[0];
+              _addVehicleSquare(vstart,color,gi,'Машина (старт)');
+            }
+          }catch(e2){ /* нет машины — просто точка */ }
+        }
+      } else {
+        try{
+          const _vid2=data.group_vehicles&&data.group_vehicles[gi];
+          const mr=await AF('/api/multistop_route',Object.assign({task_ids:grp},_vid2!=null?{vehicle_id:_vid2}:{}));
+          if(mr.coords&&mr.coords.length>1){
+            const rl=_addRoute(mr.coords,color,3,0.9); _addToGroup(gi,rl,'routes');
+            const vstart=mr.vehicle_start||mr.coords[0];
+            _addVehicleSquare(vstart,color,gi,'Машина (старт)');
+            mr.stops.forEach(s=>{
+              const mk=_addMarker(s.lon,s.lat,{color,r:10,stopNum:s.stop_order,
+                label:`${s.stop_order}. ${s.task_id} — ${s.leg_distance_km}км`});
+              _addToGroup(gi,mk,'markers');
+            });
+          }
+        }catch(e){
+          const coords=await fetch('/api/task_coords',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_ids:grp})}).then(r=>r.json());
+          const gc=grp.map(tid=>coords[tid]).filter(Boolean);
+          if(gc.length>1){ const rl=_addRoute(gc.map(c=>[c.lon,c.lat]),color,2,0.7); _addToGroup(gi,rl,'routes'); }
+          gc.forEach((c,pi)=>{ const mk=_addMarker(c.lon,c.lat,{color,r:8,label:grp[pi]}); _addToGroup(gi,mk,'markers'); });
+        }
+      }
+    }
+    document.getElementById('hint').style.display='none';
+    document.getElementById('leg').style.display='block'; _updateLegend(_activeTab);
+    _fitAll();
+    SL(`Стратегия: ${data.strategy_summary} | Экономия: ${data.savings_percent}% — ${elapsed}с`,'ok');
+  }catch(e){stopTimer();SL('Ошибка: '+e.message,'err');document.getElementById('mt-res').innerHTML=`<div style="color:var(--danger);font-size:11px">${e.message}</div>`}
+  finally{setLoading(['btn-mt'],false)}
+}
+
+// ── VRP ───────────────────────────────────────────────────────────────────────
+async function doVRP(){
+  const sel=document.getElementById('vrp-ids');
+  const ids=[...sel.selectedOptions].map(o=>o.value);
+  if(ids.length<2){SL('Выберите минимум 2 заявки (Ctrl+клик)','err');return}
+  if(ids.length>100){SL(`Слишком много заявок (${ids.length}). Максимум 100 — используйте фильтр по приоритету.`,'err');return}
+  if(ids.length>30){SL(`⚠ Большой набор (${ids.length} заявок) — решение может занять больше времени.`,'busy')}
+  const tl=parseInt(document.getElementById('vrp-tl').value)||10;
+  setLoading(['btn-vrp'],true);
+  startTimer('OR-TOOLS VRP',[
+    {id:'m',text:'Матрица расстояний'},
+    {id:'g',text:'Greedy baseline'},
+    {id:'v',text:`OR-Tools решает (до ${tl}с)`},
+    {id:'c',text:'Сравнение результатов'},
+  ]);
+  SL(`OR-Tools VRP решает (лимит ${tl}с)...`,'busy');
+  document.getElementById('vrp-res').innerHTML='<div style="color:var(--accent);font-size:11px;padding:4px 0">⏳ Решатель работает...</div>';
+  try{
+    stepDone('m');stepDone('g');
+    const data=await AF('/api/optimize',{task_ids:ids,time_limit_seconds:tl});
+    stepDone('v');stepDone('c');
+    const elapsed=stopTimer();
+
+    // §7.6: строим реальные polyline по графу для каждого маршрута техники
+    // Все маршруты строятся параллельно через Promise.all
+    const GC=['#20e860','#e8a020','#20a8e8','#e820a8','#a8e820'];
+    _clearMap();
+
+    // Сначала получаем координаты всех задач одним запросом
+    const allTaskIds=[...new Set(data.vrp_routes.flatMap(r=>r.task_ids))];
+    const allCoords=allTaskIds.length
+      ? await fetch('/api/task_coords',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({task_ids:allTaskIds})}).then(x=>x.json()).catch(()=>({}))
+      : {};
+
+    // Строим все маршруты параллельно
+    await Promise.all(data.vrp_routes.map(async(r,i)=>{
+      if(r.task_ids.length===0) return;
+      const color=GC[i%GC.length];
+      const gid=`vrp-${i}`;
+      _beginGroup(gid, color);
+
+      // Стартовая точка: сначала пробуем vehicle_id,
+      // если не найден в fleet — берём координаты первой задачи маршрута
+      let reqBody={task_ids:r.task_ids,vehicle_id:r.vehicle_id};
+      const firstCoord=allCoords[r.task_ids[0]];
+      if(!reqBody.vehicle_id && firstCoord){
+        reqBody={task_ids:r.task_ids,from_lon:firstCoord.lon,from_lat:firstCoord.lat};
+      }
+
+      try{
+        const mr=await AF('/api/multistop_route',reqBody);
+        if(mr.coords&&mr.coords.length>1){
+          const rl=_addRoute(mr.coords,color,3,0.9); _addToGroup(gid,rl,'routes');
+          // Маркер старта — таблетка с именем техники
+          const startIcon=L.divIcon({
+            className:'',
+            html:`<div style="background:#20a8e8;border:2px solid #0a0d0f;border-radius:3px;
+              padding:2px 5px;font-size:9px;font-family:'JetBrains Mono',monospace;
+              color:#0a0d0f;font-weight:700;white-space:nowrap;
+              box-shadow:0 0 8px #20a8e888">${r.vehicle_name.slice(0,12)}</div>`,
+            iconAnchor:[0,10],
+          });
+          const vm=L.marker([mr.coords[0][1],mr.coords[0][0]],{icon:startIcon}).addTo(map);
+          _markerLayers.push(vm); _addToGroup(gid,vm,'markers');
+          // Остановки
+          mr.stops.forEach(s=>{
+            const mk=_addMarker(s.lon,s.lat,{color,r:10,stopNum:s.stop_order,
+              label:`${s.stop_order}. ${s.task_id} · ${s.leg_distance_km}км · ${s.leg_eta_minutes}мин`});
+            _addToGroup(gid,mk,'markers');
+          });
+          // Подпись итогового расстояния по середине маршрута
+          const midCoord=mr.coords[Math.floor(mr.coords.length/2)];
+          const lblIcon=L.divIcon({
+            className:'',
+            html:`<div style="background:${color}22;border:1px solid ${color};border-radius:3px;
+              padding:1px 4px;font-size:9px;font-family:'JetBrains Mono',monospace;
+              color:${color};white-space:nowrap">${mr.total_distance_km}км · ${r.task_ids.length}ост.</div>`,
+            iconAnchor:[20,0],
+          });
+          const lbl=L.marker([midCoord[1],midCoord[0]],{icon:lblIcon,interactive:false}).addTo(map);
+          _markerLayers.push(lbl); _addToGroup(gid,lbl,'markers');
+        }
+      }catch(e){
+        // Fallback: пунктирные прямые линии (нет маршрута по графу)
+        const rc=r.task_ids.map(tid=>allCoords[tid]).filter(Boolean);
+        if(rc.length>1){
+          const latlngs=rc.map(c=>[c.lat,c.lon]);
+          const rl=L.polyline(latlngs,{color,weight:2,opacity:0.6,dashArray:'6 4'}).addTo(map);
+          _routeLayers.push(rl); _addToGroup(gid,rl,'routes');
+        }
+        rc.forEach((c,pi)=>{
+          const mk=_addMarker(c.lon,c.lat,{color,r:8,stopNum:pi+1,
+            label:`${r.task_ids[pi]} (нет пути по графу)`});
+          _addToGroup(gid,mk,'markers');
+        });
+      }
+    }));
+    document.getElementById('hint').style.display='none';
+    document.getElementById('leg').style.display='block'; _updateLegend(_activeTab);
+    _fitAll();
+
+    const imp=data.improvement_percent;
+    const ic=imp>0?'var(--success)':imp<0?'var(--danger)':'var(--muted)';
+    const is=imp>0?'▼ −':'▲ +';
+    document.getElementById('vrp-res').innerHTML=`
+      <div class="card" style="border-left:3px solid var(--accent)">
+        <div class="ch"><span style="font-weight:600;color:var(--accent)">OR-TOOLS VRP</span>
+          <span style="font-size:9px;color:#8fa8bc">${data.vrp_status}</span></div>
+        <div class="cs">
+          <div class="st"><span class="sl">ПРОБЕГ</span><span class="sv">${data.vrp_total_distance_km} км</span></div>
+          <div class="st"><span class="sl">ВРЕМЯ</span><span class="sv">${data.vrp_total_time_minutes} мин</span></div>
+          <div class="st"><span class="sl">ПРОСТОЙ</span><span class="sv" style="color:${data.vrp_total_idle_minutes>0?'var(--accent)':'var(--success)'}">${data.vrp_total_idle_minutes} мин</span></div>
+          <div class="st"><span class="sl">ОТКЛОНЕНО</span><span class="sv" style="color:${data.vrp_dropped_tasks.length?'var(--danger)':'var(--success)'}">${data.vrp_dropped_tasks.length}</span></div>
+          <div class="st"><span class="sl">РАСЧЁТ</span><span class="sv" style="color:var(--accent)">${elapsed}с</span></div>
+        </div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--muted)">
+        <div class="ch"><span style="font-weight:600;color:#8fa8bc">GREEDY BASELINE</span></div>
+        <div class="cs">
+          <div class="st"><span class="sl">ПРОБЕГ</span><span class="sv" style="color:#8fa8bc">${data.greedy_total_distance_km} км</span></div>
+          <div class="st"><span class="sl">ВРЕМЯ</span><span class="sv" style="color:#8fa8bc">${data.greedy_total_time_minutes} мин</span></div>
+          <div class="st"><span class="sl">ПРОСТОЙ</span><span class="sv" style="color:#8fa8bc">${data.greedy_total_idle_minutes} мин</span></div>
+          <div class="st"><span class="sl">ОТКЛОНЕНО</span><span class="sv" style="color:#8fa8bc">${data.greedy_dropped_tasks.length}</span></div>
+        </div>
+      </div>
+      <div class="card" style="border-left:3px solid ${ic}">
+        <div class="ch"><span style="font-weight:600;color:${ic}">УЛУЧШЕНИЕ</span>
+          <span style="font-size:18px;font-family:var(--font-hd);color:${ic}">${is}${Math.abs(imp)}%</span></div>
+        <div class="cs">
+          <div class="st"><span class="sl">ЭКОНОМИЯ КМ</span><span class="sv" style="color:${ic}">${data.improvement_km} км</span></div>
+          <div class="st"><span class="sl">ПРОСТОЙ СЭКОНОМЛЕН</span><span class="sv" style="color:${data.idle_saved_minutes>0?'var(--success)':'var(--muted)'}">${data.idle_saved_minutes??0} мин</span></div>
+        </div>
+        <div class="cr">${data.summary}</div>
+      </div>
+      <div class="stitle" style="padding:8px 0 4px">МАРШРУТЫ VRP <span style="color:#8fa8bc;font-size:9px">(нажмите для выделения)</span></div>
+      ${data.vrp_routes.map((r,i)=>`
+        <div class="card grp-card" data-gid="vrp-${i}" onclick="highlightGroup('vrp-${i}')" style="border-left:3px solid ${GC[i%GC.length]}">
+          <div class="ch"><span style="font-weight:600;color:${GC[i%GC.length]}">${r.vehicle_name}</span>
+            <span style="color:#8fa8bc;font-size:10px">${r.distance_km} км · ${r.task_ids.length} заявок</span></div>
+          <div>${r.task_ids.map(t=>`<span class="tpill">${t}</span>`).join('')}</div>
+        </div>`).join('')}`;
+    SL(`VRP: ${data.vrp_total_distance_km} км | Greedy: ${data.greedy_total_distance_km} км | Улучшение: ${imp}% — ${elapsed}с`,'ok');
+  }catch(e){stopTimer();SL('Ошибка: '+e.message,'err');document.getElementById('vrp-res').innerHTML=`<div style="color:var(--danger);font-size:11px">${e.message}</div>`}
+  finally{setLoading(['btn-vrp'],false)}
+}
+
+// ── Simulate ──────────────────────────────────────────────────────────────────
+async function doSim(){
+  const start=document.getElementById('sim-start').value;
+  const hours=parseInt(document.getElementById('sim-hours').value)||24;
+  if(!start){SL('Выберите начало горизонта','err');return}
+  // Предупреждение если горизонт выходит за последнюю дату заявок
+  const simWarn=document.getElementById('sim-warn');
+  if(_tasks&&_tasks.length>0){
+    const lastTaskDate=new Date(_tasks.reduce((a,b)=>a.planned_start>b.planned_start?a:b).planned_start);
+    const horizonEnd=new Date(new Date(start).getTime()+hours*3600000);
+    simWarn.style.display=horizonEnd>lastTaskDate?'block':'none';
+  }
+  setLoading(['btn-sim'],true);
+  startTimer('СИМУЛЯЦИЯ '+hours+'Ч',[
+    {id:'b',text:'Baseline (greedy)'},
+    {id:'o',text:'Оптимизированный'},
+    {id:'c',text:'Сравнение'},
+  ]);
+  SL(`Симуляция ${hours}ч начиная с ${fmtDate(start)}...`,'busy');
+  try{
+    stepDone('b');
+    const data=await AF('/api/simulate',{start,hours});
+    stepDone('o');stepDone('c');
+    const elapsed=stopTimer();
+
+    // Рисуем точки заявок на карте: зелёный=вовремя, жёлтый=поздно в baseline, красный=поздно в optimized
+    _clearMap();
+    const allCoords=await AF('/api/task_coords',{
+      task_ids:[...new Set([
+        ...data.baseline_assignments.map(a=>a.task_id),
+        ...data.optimized_assignments.map(a=>a.task_id)
+      ])]
+    });
+    const lateB=data.baseline_assignments.filter(a=>a.is_late);
+    const lateO=data.optimized_assignments.filter(a=>a.is_late);
+    Object.entries(allCoords).forEach(([tid,c])=>{
+      const isLateO=lateO.some(a=>a.task_id===tid);
+      const isLateB=lateB.some(a=>a.task_id===tid);
+      const color=isLateO?'#e83020':isLateB?'#e8a020':'#20e860';
+      _addMarker(c.lon,c.lat,{color,r:7,label:`${tid}${isLateO?' ⚠ просроч.':isLateB?' ⚠ baseline':''}`});
+    });
+    // Рисуем текущие позиции техники синими квадратиками
+    const usedVids=new Set(data.optimized_assignments.map(a=>a.vehicle_name));
+    (_vehicles||[]).filter(v=>usedVids.has(v.name)&&v.lon&&v.lat).forEach(v=>{
+      _addVehicleSquare([v.lon,v.lat],'#20a8e8',undefined,v.name);
+    });
+    document.getElementById('hint').style.display='none';
+    document.getElementById('leg').style.display='block'; _updateLegend(_activeTab);
+    _fitAll();
+
+    const sav=data.savings_percent;
+    const sc=sav>0?'var(--success)':sav<0?'var(--danger)':'var(--muted)';
+
+    // Build timeline table (optimized)
+    const rows=data.optimized_assignments.slice(0,20).map(a=>{
+      const lc=a.is_late?'var(--danger)':'var(--success)';
+      const ps=fmtTime(a.planned_start);
+      const as=fmtTime(a.actual_start);
+      return `<tr>
+        <td style="color:var(--accent)">${a.task_id}</td>
+        <td style="color:${{'high':'#e83020','medium':'#e8a020','low':'#aabccc'}[a.priority]||'#888'}">${a.priority.toUpperCase()}</td>
+        <td>${a.vehicle_name.slice(0,10)}</td>
+        <td>${ps}</td>
+        <td style="color:${lc}">${as}${a.is_late?' ⚠':''}${a.delay_minutes>0?' +'+a.delay_minutes+'м':''}</td>
+        <td>${a.travel_km}км</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('sim-res').innerHTML=`
+      <div class="card" style="border-left:3px solid ${sc}">
+        <div class="ch">
+          <span style="font-weight:600;color:${sc}">ЭКОНОМИЯ</span>
+          <span style="font-family:var(--font-hd);font-size:18px;color:${sc}">${sav>0?'−':''}${Math.abs(sav)}%</span>
+        </div>
+        <div class="cs">
+          <div class="st"><span class="sl">BASELINE КМ</span><span class="sv" style="color:#8fa8bc">${data.baseline_distance_km}</span></div>
+          <div class="st"><span class="sl">ОПТИМ. КМ</span><span class="sv">${data.optimized_distance_km}</span></div>
+          <div class="st"><span class="sl">ЭКОНОМИЯ КМ</span><span class="sv" style="color:${sc}">${data.savings_km}</span></div>
+        </div>
+        <div class="cs" style="margin-top:4px">
+          <div class="st"><span class="sl">ПРОСРОЧ. BASELINE</span><span class="sv" style="color:var(--danger)">${data.late_tasks_baseline}</span></div>
+          <div class="st"><span class="sl">ПРОСРОЧ. ОПТИМ.</span><span class="sv" style="color:${data.late_tasks_optimized>0?'var(--danger)':'var(--success)'}">${data.late_tasks_optimized}</span></div>
+          <div class="st"><span class="sl">ЗАДАЧ ВСЕГО</span><span class="sv">${data.total_tasks}</span></div>
+          <div class="st"><span class="sl">РАСЧЁТ</span><span class="sv" style="color:var(--accent)">${elapsed}с</span></div>
+        </div>
+        <div class="cs" style="margin-top:4px;border-top:1px solid var(--border);padding-top:6px">
+          <div class="st"><span class="sl">ПРОСТОЙ BASELINE</span><span class="sv" style="color:#8fa8bc">${data.baseline_idle_minutes??0} мин</span></div>
+          <div class="st"><span class="sl">ПРОСТОЙ ОПТИМ.</span><span class="sv" style="color:${(data.optimized_idle_minutes??0)<(data.baseline_idle_minutes??0)?'var(--success)':'var(--muted)'}">${data.optimized_idle_minutes??0} мин</span></div>
+          <div class="st"><span class="sl">ПРОСТОЙ СЭКОНОМЛЕН</span><span class="sv" style="color:${(data.idle_saved_minutes??0)>0?'var(--success)':'var(--muted)'}">${data.idle_saved_minutes??0} мин</span></div>
+        </div>
+        <div class="cr">${data.summary}</div>
+      </div>
+      <div class="stitle" style="padding:8px 0 4px">ТАЙМЛАЙН (ОПТИМИЗИРОВАННЫЙ)</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:10px">
+          <thead><tr style="color:#8fa8bc;border-bottom:1px solid var(--border)">
+            <th style="padding:4px;text-align:left">ЗАЯВКА</th>
+            <th>ПРИ.</th>
+            <th>ТЕХНИКА</th>
+            <th>ПЛАН</th>
+            <th>ФАКТ</th>
+            <th>КМ</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        ${data.optimized_assignments.length>20?`<div style="color:#8fa8bc;font-size:10px;padding:4px 0">...ещё ${data.optimized_assignments.length-20} задач</div>`:''}
+      </div>`;
+
+    SL(`Симуляция: −${data.savings_km}км (${sav}%) | Просроч: ${data.late_tasks_baseline}→${data.late_tasks_optimized} | Простой −${data.idle_saved_minutes??0}мин — ${elapsed}с`,'ok');
+  }catch(e){
+    stopTimer();
+    const msg=e.message||'';
+    const noTasks=msg.includes('404')||msg.includes('No tasks')||msg.includes('window');
+    SL(noTasks?'Нет заявок в выбранном периоде — выберите другую дату':'Ошибка: '+msg,'err');
+    document.getElementById('sim-res').innerHTML=
+      `<div style="color:var(--danger);font-size:11px;padding:8px">`+
+      (noTasks?'⚠ В выбранном окне нет заявок.<br>Попробуйте другую дату или увеличьте горизонт (часов).':msg)+
+      `</div>`;
+  }
+  finally{setLoading(['btn-sim'],false)}
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadH();
+loadDropdowns();
+setInterval(loadH,30000);
+</script>
+</body>
+</html>

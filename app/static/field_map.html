@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ИС УТО — Карта месторождения</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  :root{--bg:#0a0d0f;--panel:#0f1418;--border:#1e2830;--accent:#e8a020;--accent2:#20a8e8;--success:#20e860;--text:#eef2f6;--muted:#b0c4d4;--font-hd:'Bebas Neue',sans-serif;--font-mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--font-mono);background:var(--bg);color:var(--text);font-size:12px;height:100vh;display:flex;flex-direction:column}
+  .hdr{background:var(--panel);border-bottom:1px solid var(--border);padding:0 20px;height:48px;display:flex;align-items:center;gap:20px;flex-shrink:0}
+  .logo{font-family:var(--font-hd);font-size:22px;letter-spacing:3px;color:var(--accent)}
+  .stat{display:flex;flex-direction:column;gap:1px}
+  .stat span:first-child{color:#8fa8bc;font-size:9px;letter-spacing:1px}
+  .stat span:last-child{color:var(--text);font-weight:600}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);animation:pulse 2s infinite;margin-left:auto}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .ctrl{display:flex;align-items:center;gap:10px;padding:8px 18px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+  .ctrl-label{font-size:9px;letter-spacing:1px;color:#8fa8bc}
+  .toggle{display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:3px;font-family:var(--font-mono);font-size:9px;letter-spacing:1px;color:var(--muted);transition:.2s;user-select:none}
+  .toggle:hover{border-color:var(--accent)}.toggle.active{border-color:var(--accent);color:var(--accent)}
+  .dot-w{width:10px;height:10px;border-radius:50%;background:#e83020;display:inline-block;flex-shrink:0}
+  .dot-v{width:10px;height:10px;border-radius:50%;background:var(--accent2);display:inline-block;flex-shrink:0}
+  .sep{width:1px;height:20px;background:var(--border)}
+  .info-box{margin-left:auto;font-size:10px;color:#8fa8bc;text-align:right;min-width:240px}
+  #map{flex:1;position:relative}
+  .leaflet-tooltip{background:var(--panel);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:6px 10px;border-radius:3px;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+  .leaflet-tooltip b{color:var(--accent)}
+  .leaflet-control-attribution{display:none!important}
+  .legend{position:absolute;bottom:16px;left:16px;background:rgba(10,13,15,.92);border:1px solid var(--border);padding:10px 14px;border-radius:4px;font-size:10px;z-index:1000;min-width:210px;color:var(--muted)}
+  .legend-title{font-size:9px;letter-spacing:2px;color:#8fa8bc;margin-bottom:8px}
+  .legend-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}.legend-row:last-child{margin-bottom:0}
+  .loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:2000;pointer-events:none}
+  .loading-text{font-family:var(--font-hd);font-size:18px;letter-spacing:3px;color:var(--accent);margin-top:8px}
+  .spinner{width:48px;height:48px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="logo">ИС УТО</div>
+  <div class="stat"><span>СКВАЖИН</span><span id="h-wells">—</span></div>
+  <div class="stat"><span>ТРАНСПОРТ</span><span id="h-vehicles">—</span></div>
+  <div class="stat"><span>УЗЛЫ ГРАФА</span><span id="h-nodes">—</span></div>
+  <div class="stat"><span>РЁБРА</span><span id="h-edges">—</span></div>
+  <a href="/static/map.html" style="margin-left:12px;font-family:var(--font-hd);font-size:12px;letter-spacing:2px;color:var(--accent2);text-decoration:none;border:1px solid var(--accent2);padding:4px 10px;border-radius:3px;white-space:nowrap;transition:all .2s" onmouseover="this.style.background='var(--accent2)';this.style.color='var(--bg)'" onmouseout="this.style.background='transparent';this.style.color='var(--accent2)'">← ДИСПЕТЧЕРСКАЯ</a>
+  <div class="status-dot"></div>
+</div>
+
+<div class="ctrl">
+  <span class="ctrl-label">СЛОИ:</span>
+  <div class="toggle active" id="tog-wells"    onclick="toggleLayer('wells')"><span class="dot-w"></span> СКВАЖИНЫ</div>
+  <div class="toggle active" id="tog-vehicles" onclick="toggleLayer('vehicles')"><span class="dot-v"></span> ТРАНСПОРТ</div>
+  <div class="toggle active" id="tog-edges"    onclick="toggleLayer('edges')">
+    <div style="width:18px;height:2px;background:#3a6a3a;border-radius:1px"></div> ДОРОГИ
+  </div>
+  <div class="sep"></div>
+  <span class="ctrl-label">КАРТА:</span>
+  <div class="toggle"        id="tog-dark"      onclick="switchTile('dark')">ТЁМНАЯ</div>
+  <div class="toggle active" id="tog-light"     onclick="switchTile('light')">СВЕТЛАЯ</div>
+  <div class="toggle"        id="tog-satellite" onclick="switchTile('satellite')">СПУТНИК</div>
+  <div class="info-box" id="info-box">Наведите на объект</div>
+</div>
+
+<div id="map">
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text">ЗАГРУЗКА ДАННЫХ...</div>
+  </div>
+  <div class="legend" id="legend" style="display:none">
+    <div class="legend-title">ЛЕГЕНДА</div>
+    <div class="legend-row"><span class="dot-w"></span> <span id="leg-wells">Скважины</span></div>
+    <div class="legend-row"><span class="dot-v"></span> <span id="leg-vehicles">Транспорт</span></div>
+    <div class="legend-row"><div style="width:22px;height:2px;background:#3a6a3a;border-radius:1px"></div> Ребро дорожного графа</div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const TILES = {
+  dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}),
+  light: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19}),
+  satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19})
+};
+
+const map = L.map('map', {zoomControl:false, attributionControl:false});
+let currentTile = 'light';
+TILES.light.addTo(map);
+
+function switchTile(name) {
+  if (name === currentTile) return;
+  map.removeLayer(TILES[currentTile]);
+  TILES[name].addTo(map);
+  currentTile = name;
+  ['dark','light','satellite'].forEach(n => document.getElementById('tog-'+n).classList.toggle('active', n===name));
+}
+
+const layers = {wells:null, vehicles:null, edges:null};
+const visible = {wells:true, vehicles:true, edges:true};
+
+async function loadData() {
+  try {
+    // Загружаем данные параллельно
+    const [healthRes, wellsRes, vehiclesRes] = await Promise.all([
+      fetch('/api/health').then(r => r.json()).catch(() => ({})),
+      fetch('/api/list_wells?with_coords=true').then(r => r.json()),
+      fetch('/api/list_vehicles').then(r => r.json())
+    ]);
+
+    const wells = wellsRes.wells || [];
+    const vehicles = vehiclesRes.vehicles || [];
+
+    // Обновляем заголовок
+    document.getElementById('h-wells').textContent = wells.length || (healthRes.wells ?? '—');
+    document.getElementById('h-vehicles').textContent = vehicles.length || (healthRes.vehicles ?? '—');
+    document.getElementById('h-nodes').textContent = healthRes.graph_nodes ?? '—';
+    document.getElementById('h-edges').textContent = healthRes.graph_edges ?? '—';
+
+    // Обновляем легенду
+    document.getElementById('leg-wells').textContent = `Скважина / объект работ (${wells.length})`;
+    document.getElementById('leg-vehicles').textContent = `Единица транспорта (${vehicles.length})`;
+
+    // Загружаем граф из health или отдельного endpoint
+    let NODES = {}, EDGES = [];
+    try {
+      const graphRes = await fetch('/api/graph_data').then(r => r.json());
+      NODES = graphRes.nodes || {};
+      EDGES = graphRes.edges || [];
+    } catch (e) {
+      // граф может быть недоступен — ничего страшного
+    }
+
+    buildLayers(wells, vehicles, NODES, EDGES);
+  } catch (e) {
+    document.getElementById('loading').innerHTML =
+      `<div style="color:#e83020;font-family:var(--font-hd);font-size:16px;letter-spacing:2px">ОШИБКА ЗАГРУЗКИ<br><span style="font-size:11px;font-family:var(--font-mono)">${e.message}</span></div>`;
+  }
+}
+
+function buildLayers(wells, vehicles, NODES, EDGES) {
+  // Рёбра графа
+  if (EDGES.length > 0 && Object.keys(NODES).length > 0) {
+    const step = Math.max(1, Math.floor(EDGES.length / 10000));
+    const edgeLines = [];
+    for (let k = 0; k < EDGES.length; k += step) {
+      const [src, tgt] = EDGES[k];
+      const a = NODES[src], b = NODES[tgt];
+      if (a && b) edgeLines.push(L.polyline([a, b], {color:'#2d5a2d', weight:1, opacity:0.5}));
+    }
+    layers.edges = L.layerGroup(edgeLines).addTo(map);
+  } else {
+    layers.edges = L.layerGroup([]);
+    // Скрываем кнопку дорог если граф не загружен
+    document.getElementById('tog-edges').style.opacity = '0.4';
+    document.getElementById('tog-edges').style.pointerEvents = 'none';
+  }
+
+  // Скважины
+  // wells содержит объекты с полями uwi, well_name, lat, lon (или координаты могут быть во вложенных полях)
+  const wellMarkers = [];
+  for (const w of wells) {
+    const lat = w.lat ?? w.latitude;
+    const lon = w.lon ?? w.longitude ?? w.lng;
+    if (lat == null || lon == null) continue;
+    const uwi = w.uwi || w.id || '—';
+    const name = w.well_name || w.name || uwi;
+    const m = L.circleMarker([lat, lon], {radius:3, color:'#c02010', fillColor:'#e83020', fillOpacity:0.8, weight:1});
+    m.bindTooltip(`<b>${uwi}</b><br>${name}`, {sticky:true, offset:[10,0]});
+    m.on('mouseover', () => document.getElementById('info-box').innerHTML =
+      `<span style="color:#e83020">●</span> <b>${uwi}</b> — ${name}`);
+    wellMarkers.push(m);
+  }
+  layers.wells = L.layerGroup(wellMarkers).addTo(map);
+
+  // Транспорт
+  const vehMarkers = [];
+  for (const v of vehicles) {
+    const lat = v.lat ?? v.latitude;
+    const lon = v.lon ?? v.longitude ?? v.lng;
+    if (lat == null || lon == null) continue;
+    const nm = v.name || v.vehicle_name || v.vehicle_id || '—';
+    const plate = v.plate || v.license_plate || v.wialon_id || '';
+    const short = nm.length > 42 ? nm.slice(0,42)+'…' : nm;
+    const m = L.circleMarker([lat, lon], {radius:7, color:'#0a6090', fillColor:'#20a8e8', fillOpacity:0.9, weight:2});
+    m.bindTooltip(`<b>${short}</b><br>Госномер: ${plate||'—'}`, {sticky:true, offset:[10,0]});
+    m.on('mouseover', () => document.getElementById('info-box').innerHTML =
+      `<span style="color:#20a8e8">●</span> ${short} · ${plate||'—'}`);
+    vehMarkers.push(m);
+  }
+  layers.vehicles = L.layerGroup(vehMarkers).addTo(map);
+
+  // Центрируем карту по скважинам
+  if (wellMarkers.length > 0) {
+    const lats = wellMarkers.map(m => m.getLatLng().lat);
+    const lons = wellMarkers.map(m => m.getLatLng().lng);
+    map.fitBounds([
+      [Math.min(...lats), Math.min(...lons)],
+      [Math.max(...lats), Math.max(...lons)]
+    ], {padding:[40,40]});
+  } else if (vehMarkers.length > 0) {
+    const lats = vehMarkers.map(m => m.getLatLng().lat);
+    const lons = vehMarkers.map(m => m.getLatLng().lng);
+    map.fitBounds([
+      [Math.min(...lats), Math.min(...lons)],
+      [Math.max(...lats), Math.max(...lons)]
+    ], {padding:[40,40]});
+  }
+
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('legend').style.display = 'block';
+}
+
+function toggleLayer(name) {
+  visible[name] = !visible[name];
+  document.getElementById('tog-'+name).classList.toggle('active', visible[name]);
+  if (layers[name]) {
+    visible[name] ? layers[name].addTo(map) : map.removeLayer(layers[name]);
+  }
+}
+
+L.control.zoom({position:'topright'}).addTo(map);
+map.on('mousemove', e => document.getElementById('info-box').innerHTML =
+  `lat ${e.latlng.lat.toFixed(5)} &nbsp;&nbsp; lon ${e.latlng.lng.toFixed(5)}`);
+
+loadData();
+</script>
+</body>
+</html>
