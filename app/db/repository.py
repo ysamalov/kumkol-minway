@@ -184,13 +184,13 @@ class Repository:
     async def get_compatibility(self) -> dict[str, list[str]]:
         try:
             rows = await self.pool.fetch(
-                "SELECT task_type, vehicle_types FROM compatibility"
+                "SELECT task_type, vehicle_types FROM public.compatibility"
             )
             if rows:
                 return {r["task_type"]: list(r["vehicle_types"]) for r in rows}
         except Exception:
             pass
-        return DEFAULT_COMPATIBILITY
+        return {}  # таблица пустая или ещё не заполнена — данные загрузятся через make load-hackathon
 
     # ── Road graph raw ────────────────────────────────────────────────────────
 
