@@ -172,6 +172,9 @@ curl http://localhost:8080/api/health
 
 ```bash
 make load-hackathon
+
+после перегрузить сервер для применения данных
+docker compose restart server
 ```
 
 Эта команда выполняет 4 шага:
