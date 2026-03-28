@@ -130,6 +130,7 @@ class RecommendationRequest(BaseModel):
     destination_uwi: str
     planned_start: datetime
     duration_hours: float
+    task_type: str = ""  # тип работ для фильтрации совместимой техники
 
 class RecommendationResponse(BaseModel):
     units: list[VehicleCandidate]

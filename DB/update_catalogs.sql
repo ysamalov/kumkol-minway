@@ -9,7 +9,6 @@ BEGIN;
 -- 1. vehicle_type_catalog — реальные типы техники из снапшотов
 -- =============================================================
 
-TRUNCATE public.vehicle_type_catalog CASCADE;
 
 INSERT INTO public.vehicle_type_catalog (vehicle_type, description, avg_speed_kmh, can_work_night) VALUES
 -- Автобусы (основной флот в снапшотах)
@@ -90,6 +89,9 @@ BEGIN
     IF nm_upper LIKE '%ТОПЛИВО%' OR nm_upper LIKE '%ЗАПРА%' THEN RETURN 'Топливозаправщик'; END IF;
     IF nm_upper LIKE '%ШАКМАН%' OR nm_upper LIKE '%SHACMAN%' THEN RETURN 'Самосвал';    END IF;
 
+    IF nm_upper LIKE '%БОРТОВОЙ%' OR nm_upper LIKE '%БОРТОВ%' THEN RETURN 'Бортовой';       END IF;
+    IF nm_upper LIKE '%ПАЗ%' OR nm_upper LIKE '%PAZ%'      THEN RETURN 'Автобус_Малый';  END IF;
+    IF nm_upper LIKE '%ГАЗЕЛЬ%' OR nm_upper LIKE '%GAZEL%'  THEN RETURN 'Автобус_Малый';  END IF;
     RETURN 'UNKNOWN';
 END;
 $$;
@@ -99,7 +101,8 @@ $$;
 -- 3. vehicle_registry — перезаполнить из снапшотов
 -- =============================================================
 
-TRUNCATE public.vehicle_registry CASCADE;
+
+DELETE FROM public.vehicle_registry;
 
 INSERT INTO public.vehicle_registry
     (wialon_id, registration_plate, vehicle_type, display_name, type_source)
@@ -121,14 +124,33 @@ FROM (
     ) all_snaps
 ) ranked
 WHERE rn = 1
-ON CONFLICT (wialon_id) DO NOTHING;
+ON CONFLICT (wialon_id) DO UPDATE SET
+    registration_plate = EXCLUDED.registration_plate,
+    display_name       = EXCLUDED.display_name,
+    updated_at         = NOW(),
+    vehicle_type = CASE
+        WHEN vehicle_registry.type_source = 'manual'
+        THEN vehicle_registry.vehicle_type
+        ELSE EXCLUDED.vehicle_type
+    END;
+
+-- Удаляем записи которых нет в снапшотах (устаревшие/тестовые)
+DELETE FROM public.vehicle_registry
+WHERE wialon_id NOT IN (
+    SELECT DISTINCT wialon_id FROM "references".wialon_units_snapshot_1
+    UNION
+    SELECT DISTINCT wialon_id FROM "references".wialon_units_snapshot_2
+    UNION
+    SELECT DISTINCT wialon_id FROM "references".wialon_units_snapshot_3
+);
 
 
 -- =============================================================
 -- 4. compatibility — виды работ → виды техники
 -- =============================================================
 
-TRUNCATE public.compatibility CASCADE;
+
+DELETE FROM public.compatibility;
 
 INSERT INTO public.compatibility (task_type, vehicle_types, description) VALUES
 -- Строительные работы (из BBJ заявок)
@@ -180,13 +202,13 @@ INSERT INTO public.compatibility (task_type, vehicle_types, description) VALUES
     ARRAY['XJ','АНЦ','АКС','БМ'],
     'Телеметрия скважин — подъёмные агрегаты'),
 ('СК4-1-2 Геофизические исследования при освоении скважины',
-    ARRAY['АНЦ','АЦН'],
+    ARRAY['АНЦ','АЦН','УНБ'],
     'ГИС при освоении скважин'),
 ('СК5-3 Отбор керна',
     ARRAY['XJ','АНЦ','ЦА'],
     'Отбор керна — буровые агрегаты'),
 ('СК3-2-6 Геофизические работы',
-    ARRAY['АНЦ','АЦН','ЦА'],
+    ARRAY['АНЦ','АЦН','ЦА','УНБ'],
     'Геофизические работы'),
 ('СК3-1 Пусконалодочные работы',
     ARRAY['БАРС','XJ','АНЦ'],
@@ -237,7 +259,7 @@ INSERT INTO public.compatibility (task_type, vehicle_types, description) VALUES
     ARRAY['АЦН'],
     'Перекачка нефти'),
 ('Откачка технической емкости аэризации',
-    ARRAY['Автокран','АНЦ'],
+    ARRAY['Автокран','АНЦ','Гидроподъёмник'],
     'Откачка ёмкости'),
 ('Пропарка бурового оборудования',
     ARRAY['БМ','ППУА'],
@@ -260,12 +282,13 @@ INSERT INTO public.compatibility (task_type, vehicle_types, description) VALUES
 
 -- Прочие / транспортные
 ('Прочие виды работ',
-    ARRAY['Автобус_Большой','Автобус_Средний','Автобус_Малый','Пикап'],
+    ARRAY['Автобус_Большой','Автобус_Средний','Автобус_Малый','Пикап','Гидроподъёмник'],
     'Прочие работы — вахтовый транспорт'),
 ('default',
-    ARRAY['Автобус_Большой','Автобус_Средний','Автобус_Малый','Пикап',
-          'АНЦ','АЦН','ЦА','XJ','Самосвал','Бульдозер','Экскаватор'],
-    'Любой вид работ — все типы техники')
+    ARRAY['АНЦ','АЦН','ЦА','АСЦ','УНБ','БМ','БАРС','XJ','АКС','ППУА',
+          'Автокран','Бульдозер','Экскаватор','Автогрейдер','Каток',
+          'Погрузчик','Самосвал','Трубоукладчик','Бортовой','Топливозаправщик','Гидроподъёмник'],
+    'Спецтехника — все виды специальных работ (без пассажирского транспорта)')
 ON CONFLICT (task_type) DO UPDATE SET
     vehicle_types = EXCLUDED.vehicle_types,
     description   = EXCLUDED.description;

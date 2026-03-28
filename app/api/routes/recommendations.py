@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.core.exceptions import AppError
 from app.core.models import (
@@ -63,6 +63,72 @@ async def health(
     }
 
 
+
+
+# ── Reload ─────────────────────────────────────────────────────────────────────
+
+@router.post("/reload")
+async def reload(request: Request):
+    """Перезагружает граф дорог и парк техники из БД без перезапуска сервера."""
+    from app.graph.road_graph import RoadGraph
+    from app.fleet.manager import FleetManager
+    from app.optimizer.optimizer import Optimizer
+
+    repo  = request.app.state.repo
+    graph = RoadGraph()
+    nodes = await repo.get_road_nodes()
+    edges = await repo.get_road_edges()
+    graph.build(nodes, edges)
+
+    fleet = FleetManager(repo, graph)
+    await fleet.load()
+
+    request.app.state.graph     = graph
+    request.app.state.fleet     = fleet
+    request.app.state.optimizer = Optimizer(graph, fleet)
+
+    return {
+        "status":      "reloaded",
+        "graph_nodes": graph.node_count,
+        "graph_edges": graph.edge_count,
+        "vehicles":    len(fleet.vehicles),
+    }
+
+
+
+# ── Debug ──────────────────────────────────────────────────────────────────────
+
+@router.get("/debug/vehicle/{wialon_id}")
+async def debug_vehicle(wialon_id: int, fleet: FleetManager = Depends(get_fleet)):
+    """Показывает skills и vehicle_type для конкретной машины."""
+    vehicle = fleet.vehicles.get(wialon_id)
+    if not vehicle:
+        return {"error": f"Vehicle {wialon_id} not found"}
+    vtype = fleet._registry.get(wialon_id, "NOT_IN_REGISTRY")
+    return {
+        "wialon_id": wialon_id,
+        "name": vehicle.name,
+        "vehicle_type": vtype,
+        "skills_count": len(vehicle.skills),
+        "skills": sorted(vehicle.skills),
+    }
+
+@router.get("/debug/task_compat/{task_type_encoded}")
+async def debug_task_compat(task_type_encoded: str, fleet: FleetManager = Depends(get_fleet)):
+    """Показывает какие машины совместимы с типом работ."""
+    import urllib.parse
+    task_type = urllib.parse.unquote(task_type_encoded)
+    compatible = []
+    for vid, v in fleet.vehicles.items():
+        if task_type in v.skills:
+            vtype = fleet._registry.get(vid, "UNKNOWN")
+            compatible.append({"wialon_id": vid, "name": v.name, "vehicle_type": vtype})
+    return {
+        "task_type": task_type,
+        "compatible_count": len(compatible),
+        "vehicles": compatible,
+    }
+
 # ── Recommendations ────────────────────────────────────────────────────────────
 
 @router.post("/recommendations", response_model=RecommendationResponse)
@@ -84,6 +150,7 @@ async def recommendations(
             priority=body.priority,
             destination_uwi=body.destination_uwi,
             planned_start=body.planned_start,
+            task_type=getattr(body, 'task_type', ''),
             duration_hours=body.duration_hours,
         )
         candidates = await rec_svc.recommend_for_task(

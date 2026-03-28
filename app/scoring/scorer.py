@@ -122,7 +122,16 @@ def _build_reason(
         parts.append("свободна")
 
     if idle_minutes > 30:
-        parts.append(f"простой до задачи {idle_minutes:.0f} мин")
+        if idle_minutes >= 720:
+            # Машина свободна, задача запланирована более чем через смену
+            parts.append("свободна (задача в будущей смене)")
+        else:
+            h = int(idle_minutes // 60)
+            m = int(idle_minutes % 60)
+            if h > 0:
+                parts.append(f"простой до задачи {h}ч {m}мин")
+            else:
+                parts.append(f"простой до задачи {m:.0f} мин")
 
     parts.append(f"расстояние {distance_km:.1f} км, ETA {eta_minutes:.0f} мин")
 

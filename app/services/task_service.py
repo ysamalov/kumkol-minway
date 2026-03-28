@@ -83,6 +83,7 @@ class TaskService:
         destination_uwi: str,
         planned_start: datetime,
         duration_hours: float,
+        task_type: str = "",
     ) -> Task:
         """Собирает Task из параметров запроса (для /recommendations)."""
         well = await self.repo.get_well_by_uwi(destination_uwi)
@@ -102,7 +103,7 @@ class TaskService:
             planned_start=planned_start,
             planned_duration_hours=duration_hours,
             destination_uwi=destination_uwi,
-            task_type="",
+            task_type=task_type,
             shift=shift,
             start_day=planned_start.date(),
             end_day=end_day,

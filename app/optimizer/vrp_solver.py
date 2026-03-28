@@ -147,11 +147,11 @@ def solve_vrp(
     # Не используем SetRange — жёсткие TW приводят к инфизабельности
     # при длинных задачах и заставляют OR-Tools сваливать всё на одну машину.
 
-    # ── 7. TaskCount: мягкое ограничение (не жёсткое)
-    # Жёсткий cap вынуждает OR-Tools распределять задачи по всем машинам равномерно,
-    # что увеличивает суммарный пробег. Используем cap = nT (без ограничения),
-    # чтобы решатель сам выбирал оптимальное распределение.
-    task_cap = nT  # без жёсткого cap
+    # ── 7. TaskCount: ограничение числа задач на машину
+    # cap = ceil(nT / nV) * 2  — достаточно свободы для оптимизации,
+    # но не позволяет одной машине взять всё.
+    # Минимум 3 задачи на машину чтобы не блокировать маленькие наборы.
+    task_cap = max(3, math.ceil(nT / max(nV, 1)) * 2)
 
     def unit_cb(from_idx: int) -> int:
         return 0 if manager.IndexToNode(from_idx) < nV else 1
@@ -160,6 +160,22 @@ def solve_vrp(
     routing.AddDimensionWithVehicleCapacity(
         uc_idx, 0, [task_cap] * nV, True, "TaskCount"
     )
+    # Фиксированная стоимость использования каждой машины.
+    # Без неё OR-Tools кладёт все задачи на одну машину (минимизирует суммарный пробег).
+    # С ней решатель балансирует: выгоднее задействовать близкую машину,
+    # чем гнать одну дальнюю через всё поле.
+    # Стоимость ≈ средний пробег до задачи / 5 — достаточно чтобы побудить к распределению,
+    # но не настолько высоко чтобы OR-Tools дропал задачи.
+    all_task_dists = [
+        dist_m[v_idx][nV + t_idx]
+        for v_idx in range(nV)
+        for t_idx in range(nT)
+        if dist_m[v_idx][nV + t_idx] < INF_COST
+    ]
+    avg_dist = int(sum(all_task_dists) / max(len(all_task_dists), 1))
+    fixed_cost = max(500, avg_dist // 5)
+    for v_idx in range(nV):
+        routing.SetFixedCostOfVehicle(fixed_cost, v_idx)
 
     # ── 8. Приоритеты: штраф за дроп ─────────────────────────────────────────
     penalty_map = {
@@ -174,7 +190,7 @@ def solve_vrp(
     # ── 9. Параметры поиска ───────────────────────────────────────────────────
     params = pywrapcp.DefaultRoutingSearchParameters()
     params.first_solution_strategy = (
-        routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
+        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
     )
     params.local_search_metaheuristic = (
         routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH

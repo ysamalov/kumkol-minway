@@ -65,22 +65,29 @@ class FleetManager:
         all_task_types = [t for t in self.compatibility if t != "default"]
         vehicle_type = self._registry.get(wialon_id, "UNKNOWN")
 
-        # Пробуем найти совпадение: любой паттерн из compatibility совпадает с vehicle_type
+        # Ищем совместимые задачи через vehicle_type из реестра
         if vehicle_type and vehicle_type != "UNKNOWN":
             skills = []
             for task_type, patterns in self.compatibility.items():
                 if task_type == "default":
                     continue
-                # Паттерн содержится в vehicle_type ИЛИ vehicle_type содержится в паттерне
                 if any(
-                    p.upper() in vehicle_type.upper() or vehicle_type.upper() in p.upper()
+                    p.upper() == vehicle_type.upper()  # точное совпадение типа
                     for p in patterns
                 ):
                     skills.append(task_type)
             if skills:
                 return skills
+            # Тип известен но не в таблице совместимости — машина ничего не делает
+            # (лучше не назначать, чем назначить неправильно)
+            log.warning(
+                "vehicle wialon_id=%s type=%r — тип не найден в compatibility. "
+                "Машина не будет назначаться на задачи.",
+                wialon_id, vehicle_type,
+            )
+            return []
 
-        # Фолбэк по имени машины
+        # vehicle_type == UNKNOWN — пробуем по имени
         name_upper = vehicle_name.upper()
         skills = []
         for task_type, patterns in self.compatibility.items():
@@ -91,20 +98,14 @@ class FleetManager:
         if skills:
             return skills
 
-        # Финальный фолбэк: машина может выполнять все виды работ.
-        # не совпадают по типу с заявками (строительная/нефтяная техника).
+        # Полностью неизвестная машина
         log.warning(
-            "vehicle wialon_id=%s type=%r nm=%r — тип не совпал с compatibility. "
-            "Назначены все виды работ (fallback).",
-            wialon_id, vehicle_type, vehicle_name,
+            "vehicle wialon_id=%s type=UNKNOWN nm=%r — не определён тип. "
+            "Назначены только прочие работы.",
+            wialon_id, vehicle_name,
         )
-        # strict_compatibility из .env: True = блокировать, False = разрешать всё
         if settings.strict_compatibility:
-            log.warning(
-                "vehicle wialon_id=%s type=%r — строгая совместимость: задачи не назначены.",
-                wialon_id, vehicle_type,
-            )
-            return []
+            return [t for t in self.compatibility if t == 'Прочие виды работ']
         return all_task_types
 
     def is_compatible(self, vehicle: Vehicle, task_type: str) -> bool:
@@ -113,7 +114,13 @@ class FleetManager:
         return task_type in vehicle.skills
 
     def wait_minutes(self, vehicle: Vehicle) -> float:
+        """Минуты до освобождения машины от текущего задания.
+        Возвращает 0 если машина свободна или её занятость истекла."""
         now = datetime.now(timezone.utc)
         if vehicle.free_at > now:
-            return (vehicle.free_at - now).total_seconds() / 60.0
+            diff = (vehicle.free_at - now).total_seconds() / 60.0
+            # Ограничиваем одной сменой: если free_at далеко в будущем
+            # (например, машина получила задание на демо-дату),
+            # не показываем абсурдные значения
+            return min(diff, 720.0)
         return 0.0

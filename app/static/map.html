@@ -905,6 +905,7 @@ async function loadDropdowns(){
       if(t){
         document.getElementById('r-uwi').value=t.destination_uwi;
         document.getElementById('r-pri').value=t.priority;
+        window._selectedTaskType=t.task_type||'';
         const dt=t.planned_start.slice(0,16);
         document.getElementById('r-dt').value=dt;
         // Длительность — показываем точное значение из заявки
@@ -978,6 +979,7 @@ async function doRec(){
       destination_uwi:uwi,
       planned_start:document.getElementById('r-dt').value+':00Z',
       duration_hours:parseFloat(document.getElementById('r-dur').value),
+      task_type:window._selectedTaskType||'',
     });
     stepDone('s');stepDone('a');
     const elapsed=stopTimer();

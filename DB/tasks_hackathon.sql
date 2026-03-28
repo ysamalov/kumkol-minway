@@ -6,7 +6,6 @@
 
 BEGIN;
 
-TRUNCATE public.tasks CASCADE;
 
 INSERT INTO public.tasks
     (task_id, priority, planned_start, planned_duration_hours,

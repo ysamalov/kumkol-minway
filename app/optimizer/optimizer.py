@@ -33,6 +33,13 @@ class Optimizer:
         candidates: list[VehicleCandidate] = []
 
         for vehicle in self.fleet.vehicles.values():
+            # Строгая фильтрация несовместимой техники:
+            # если task_type задан и машина не совместима — пропускаем полностью.
+            # Несовместимая машина не должна попадать в список кандидатов.
+            is_compat = self.fleet.is_compatible(vehicle, task.task_type)
+            if task.task_type and not is_compat:
+                continue
+
             try:
                 route = self.graph.shortest_path(vehicle.start_node, task.destination_node)
             except ValueError:
@@ -43,14 +50,15 @@ class Optimizer:
             route.time_minutes = round(eta, 1)
 
             wait = self.fleet.wait_minutes(vehicle)
-            is_compat = self.fleet.is_compatible(vehicle, task.task_type)
 
-            # Idle: если машина свободна (wait=0), но задача запланирована в будущем,
-            # машина будет простаивать от сейчас до planned_start
+            # Idle: время простоя машины до начала задачи.
+            # Ограничиваем одной сменой (720 мин) — если задача в далёком будущем
+            # (демо-данные), не показываем абсурдные значения типа 25000 мин.
             from datetime import datetime, timezone
             now = datetime.now(timezone.utc)
             if task.planned_start and task.planned_start > now and wait == 0:
-                idle = (task.planned_start - now).total_seconds() / 60.0
+                raw_idle = (task.planned_start - now).total_seconds() / 60.0
+                idle = min(raw_idle, 720.0)
             else:
                 idle = 0.0
 
